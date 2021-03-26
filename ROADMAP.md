@@ -11,11 +11,13 @@ This will be done by producing several [ADL](https://github.com/ipld/docs/blob/m
 	- [ ] Writable
 		- [ ] Chunker as a callback/interface
 	- (may choose to implement this as mostly shared code with the other file ADL, where the internal layout is just a parameter; undecided)
+	- [ ] Upstream work to determine how `ipld.Node` and `ipld.NodeAssembler` should work for data in the size scale that requires streaming and seeking
 - ADL to make files appear as `kind`==`bytes`, where interally layout=balanceddag:
 	- [ ] Readable
 	- [ ] Writable
 		- [ ] Chunker as a callback/interface
 	- (may choose to implement this as mostly shared code with the other file ADL, where the internal layout is just a parameter; undecided)
+	- [ ] Upstream work to determine how `ipld.Node` and `ipld.NodeAssembler` should work for data in the size scale that requires streaming and seeking
 - ADL to make unixfsv1 unsharded directories look like a regular `kind`==`map`:
 	- (e.g. just walk the list of links and select something based on the name field inside the list as if that was a map key.)
 	- [x] Readable
@@ -30,6 +32,9 @@ This will be done by producing several [ADL](https://github.com/ipld/docs/blob/m
 	- there will *not* be a writable side to this!  Directories can't have entries added to them without metadata, so a symmetric write operation which is symmetric to this read operation is not defined.
 	- (this is how natural pathing of the form `/ipfs/{cid}/xxx/yyy/zzz.ext` is served -- the `xxx` and `yyy` segments are served by lookups across this kind of ADL.)
 	- (note how this and the above ADL _read the same substrate data_ -- while _interpreting it in different ways_.)
+
+The above list is unordered.
+(E.g. the features related to directory sharding may well be implemented before the file features; they're not interdependent.)
 
 
 ### Why do this as ADLs?
