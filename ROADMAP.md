@@ -91,3 +91,7 @@ That is: this repo will provide semiotically comparable features to the repos it
 but this repo will *not* replace *every* feature in those repos,
 and definitely will not contain exact replicas of those APIs.
 
+This work will be ongoing.
+There may be an intermediary phase where those repos will start using this code to do their work,
+but before those repos are totally replaced.
+During that time, new code is encouraged to try to use this repo alone where possible.
