@@ -15,7 +15,7 @@ import (
 	multihash "github.com/multiformats/go-multihash/core"
 )
 
-// BuildUnixFSFile creates a dag of ipld Nodes represeting file data.
+// BuildUnixFSFile creates a dag of ipld Nodes representing file data.
 // This recreates the functionality previously found in
 // github.com/ipfs/go-unixfs/importer/balanced, but tailored to the
 // go-unixfsnode & ipld-prime data layout of nodes.
@@ -140,51 +140,6 @@ func treeRecursive(depth int, children []ipld.Link, childLen []uint64, src chunk
 
 	link, err := ls.Store(ipld.LinkContext{}, fileLinkProto, pbn)
 	return link, totalSize, err
-}
-
-func sizeOf(n ipld.Node) (uint64, error) {
-	if n.Kind() == ipld.Kind_Bytes {
-		b, err := n.AsBytes()
-		return uint64(len(b)), err
-	} else if n.Kind() == ipld.Kind_Map {
-		// dagpb node.
-		var li ipld.ListIterator
-		if dpb, ok := n.(dagpb.PBNode); ok {
-			// see if unixfs.
-			if ufs, err := data.DecodeUnixFSData(dpb.Data.Must().Bytes()); err == nil {
-				if ufs.FileSize.Exists() {
-					return uint64(ufs.FileSize.Must().Int()), nil
-				}
-			}
-			// add up link sizes
-			li = dpb.Links.ListIterator()
-		} else {
-			ln, err := n.LookupByString("Links")
-			if err != nil {
-				return 0, err
-			}
-			li = ln.ListIterator()
-		}
-
-		s := uint64(0)
-		for !li.Done() {
-			_, l, err := li.Next()
-			if err != nil {
-				return 0, err
-			}
-			ls, err := l.LookupByString("Tsize")
-			if err != nil {
-				return 0, err
-			}
-			i, err := ls.AsInt()
-			if err == nil {
-				s += uint64(i)
-			}
-		}
-		return s, nil
-	} else {
-		return 0, fmt.Errorf("Unexpected node kind %s", n.Kind().String())
-	}
 }
 
 func mkLink(name string, size int64, hash ipld.Link) (ipld.Node, error) {
