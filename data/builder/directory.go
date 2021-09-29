@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/ipfs/go-unixfsnode/data"
 	dagpb "github.com/ipld/go-codec-dagpb"
@@ -33,7 +34,7 @@ func BuildUnixFSDirectory(entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Lin
 	if err != nil {
 		return nil, err
 	}
-	// TODO: enforce sort order for entries.
+	sort.Stable(LinkSlice(entries))
 	for _, e := range entries {
 		if err := lnks.AssembleValue().AssignNode(e); err != nil {
 			return nil, err
@@ -48,4 +49,20 @@ func BuildUnixFSDirectory(entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Lin
 	}
 	node := pbb.Build()
 	return ls.Store(ipld.LinkContext{}, fileLinkProto, node)
+}
+
+type LinkSlice []dagpb.PBLink
+
+func (ls LinkSlice) Len() int      { return len(ls) }
+func (ls LinkSlice) Swap(a, b int) { ls[a], ls[b] = ls[b], ls[a] }
+func (ls LinkSlice) Less(a, b int) bool {
+	na := ""
+	if ls[a].Name.Exists() {
+		na, _ = ls[a].Name.Must().AsString()
+	}
+	nb := ""
+	if ls[b].Name.Exists() {
+		nb, _ = ls[b].Name.Must().AsString()
+	}
+	return na < nb
 }
