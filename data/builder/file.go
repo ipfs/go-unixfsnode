@@ -24,10 +24,10 @@ import (
 // * we assume we are using CIDv1, which has implied that the leaf
 //   data nodes are stored as raw bytes.
 //   ref: https://github.com/ipfs/go-mfs/blob/1b1fd06cff048caabeddb02d4dbf22d2274c7971/file.go#L50
-func BuildUnixFSFile(r io.Reader, chunker string, ls *ipld.LinkSystem) (ipld.Link, error) {
+func BuildUnixFSFile(r io.Reader, chunker string, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
 	s, err := chunk.FromString(r, chunker)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var prev []ipld.Link
@@ -36,15 +36,16 @@ func BuildUnixFSFile(r io.Reader, chunker string, ls *ipld.LinkSystem) (ipld.Lin
 	for {
 		root, size, err := treeRecursive(depth, prev[:], prevLen[:], s, ls)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if prev != nil && prev[0] == root {
-			return root, nil
+			return root, size, nil
 		}
 
 		prev = []ipld.Link{root}
 		prevLen = []uint64{size}
+		depth++
 	}
 }
 
@@ -126,7 +127,7 @@ func treeRecursive(depth int, children []ipld.Link, childLen []uint64, src chunk
 	pblb, _ := pbm.AssembleEntry("Links")
 	pbl, _ := pblb.BeginList(int64(len(children)))
 	for i, c := range children {
-		pbln, err := mkLink("", int64(blksizes[i]), c)
+		pbln, err := BuildUnixFSDirectoryEntry("", int64(blksizes[i]), c)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -139,10 +140,25 @@ func treeRecursive(depth int, children []ipld.Link, childLen []uint64, src chunk
 	pbn := dpbb.Build()
 
 	link, err := ls.Store(ipld.LinkContext{}, fileLinkProto, pbn)
-	return link, totalSize, err
+	// calculate the dagpb node's size and add as overhead.
+	cl, ok := link.(cidlink.Link)
+	if !ok {
+		return nil, 0, fmt.Errorf("unexpected non-cid linksystem")
+	}
+	rawlnk := cid.NewCidV1(uint64(multicodec.Raw), cl.Cid.Hash())
+	rn, err := ls.Load(ipld.LinkContext{}, cidlink.Link{Cid: rawlnk}, basicnode.Prototype__Bytes{})
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+	}
+	rnb, err := rn.AsBytes()
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+	}
+	return link, totalSize + uint64(len(rnb)), err
 }
 
-func mkLink(name string, size int64, hash ipld.Link) (ipld.Node, error) {
+// BuildUnixFSDirectoryEntry creates the link to a file or directory as it appears within a unixfs directory.
+func BuildUnixFSDirectoryEntry(name string, size int64, hash ipld.Link) (dagpb.PBLink, error) {
 	dpbl := dagpb.Type.PBLink.NewBuilder()
 	lma, err := dpbl.BeginMap(3)
 	if err != nil {
@@ -160,7 +176,7 @@ func mkLink(name string, size int64, hash ipld.Link) (ipld.Node, error) {
 	if err = lma.AssembleValue().AssignString(name); err != nil {
 		return nil, err
 	}
-	if err = lma.AssembleKey().AssignString("Size"); err != nil {
+	if err = lma.AssembleKey().AssignString("Tsize"); err != nil {
 		return nil, err
 	}
 	if err = lma.AssembleValue().AssignInt(size); err != nil {
@@ -169,7 +185,7 @@ func mkLink(name string, size int64, hash ipld.Link) (ipld.Node, error) {
 	if err = lma.Finish(); err != nil {
 		return nil, err
 	}
-	return dpbl.Build(), nil
+	return dpbl.Build().(dagpb.PBLink), nil
 }
 
 // Constants below are from
