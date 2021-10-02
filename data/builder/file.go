@@ -34,7 +34,7 @@ func BuildUnixFSFile(r io.Reader, chunker string, ls *ipld.LinkSystem) (ipld.Lin
 	var prevLen []uint64
 	depth := 1
 	for {
-		root, size, err := treeRecursive(depth, prev[:], prevLen[:], s, ls)
+		root, size, err := fileTreeRecursive(depth, prev[:], prevLen[:], s, ls)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -67,7 +67,7 @@ var leafLinkProto = cidlink.LinkPrototype{
 	},
 }
 
-func treeRecursive(depth int, children []ipld.Link, childLen []uint64, src chunk.Splitter, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
+func fileTreeRecursive(depth int, children []ipld.Link, childLen []uint64, src chunk.Splitter, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
 	if depth == 1 && len(children) > 0 {
 		return nil, 0, fmt.Errorf("leaf nodes cannot have children")
 	} else if depth == 1 {
@@ -93,7 +93,7 @@ func treeRecursive(depth int, children []ipld.Link, childLen []uint64, src chunk
 		}
 	}
 	for len(children) < DefaultLinksPerBlock {
-		nxt, sz, err := treeRecursive(depth-1, nil, nil, src, ls)
+		nxt, sz, err := fileTreeRecursive(depth-1, nil, nil, src, ls)
 		if err != nil {
 			return nil, 0, err
 		} else if nxt == nil {
