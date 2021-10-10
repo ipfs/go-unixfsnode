@@ -150,6 +150,9 @@ func (s *shard) serialize(ls *ipld.LinkSystem) (ipld.Link, error) {
 			}
 			fullName := s.formatLinkName("", idx)
 			lnk, err = BuildUnixFSDirectoryEntry(fullName, 0, ipldLnk)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			fullName := s.formatLinkName(e.Name.Must().String(), idx)
 			lnk, err = BuildUnixFSDirectoryEntry(fullName, e.Tsize.Must().Int(), e.Hash.Link())

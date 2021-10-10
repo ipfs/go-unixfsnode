@@ -1,12 +1,15 @@
 package builder
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"path"
 
 	"github.com/ipfs/go-unixfsnode/data"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -20,7 +23,7 @@ const defaultShardWidth = 256
 // the file or directory tree pointed to by `root`
 // TODO: support symlinks
 func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
-	info, err := os.Stat(root)
+	info, err := os.Lstat(root)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -45,6 +48,15 @@ func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, 
 		outLnk, err := BuildUnixFSDirectory(lnks, ls)
 		return outLnk, 0, err
 	}
+	if info.Mode().Type() == fs.ModeSymlink {
+		content, err := os.Readlink(root)
+		if err != nil {
+			return nil, 0, err
+		}
+		return BuildUnixFSSymlink(content, ls)
+	} else if !info.Mode().IsRegular() {
+		return nil, 0, fmt.Errorf("cannot encode non regular file: %s", root)
+	}
 	// else: file
 	fp, err := os.Open(root)
 	if err != nil {
@@ -54,10 +66,24 @@ func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, 
 	return BuildUnixFSFile(fp, "", ls)
 }
 
+// estimateDirSize estimates if a directory is big enough that it warrents sharding
+func estimateDirSize(entries []dagpb.PBLink) int {
+	s := 0
+	for _, e := range entries {
+		lnk := e.Hash.Link()
+		cl, ok := lnk.(cidlink.Link)
+		if ok {
+			s += len(e.Name.Must().String()) + cl.ByteLen()
+		} else {
+			s += len(e.Name.Must().String()) + len(lnk.String())
+		}
+	}
+	return s
+}
+
 // BuildUnixFSDirectory creates a directory link over a collection of entries.
 func BuildUnixFSDirectory(entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Link, error) {
-	// TODO: flip to shards based on resulting node size estimate rather than link count.
-	if len(entries) > DefaultLinksPerBlock {
+	if estimateDirSize(entries) > shardSplitThreshold {
 		return BuildUnixFSShardedDirectory(defaultShardWidth, multihash.MURMUR3_128, entries, ls)
 	}
 	ufd, err := BuildUnixFS(func(b *Builder) {

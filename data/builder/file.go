@@ -191,6 +191,51 @@ func BuildUnixFSDirectoryEntry(name string, size int64, hash ipld.Link) (dagpb.P
 	return dpbl.Build().(dagpb.PBLink), nil
 }
 
+// BuildUnixFSSymlink builds a symlink entry in a unixfs tree
+func BuildUnixFSSymlink(content string, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
+	// make the unixfs node.
+	node, err := BuildUnixFS(func(b *Builder) {
+		DataType(b, data.Data_Symlink)
+		Data(b, []byte(content))
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	dpbb := dagpb.Type.PBNode.NewBuilder()
+	pbm, err := dpbb.BeginMap(2)
+	if err != nil {
+		return nil, 0, err
+	}
+	pblb, _ := pbm.AssembleEntry("Links")
+	pbl, _ := pblb.BeginList(0)
+	_ = pbl.Finish()
+	_ = pbm.AssembleKey().AssignString("Data")
+	_ = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node))
+	_ = pbm.Finish()
+	pbn := dpbb.Build()
+
+	link, err := ls.Store(ipld.LinkContext{}, fileLinkProto, pbn)
+	if err != nil {
+		return nil, 0, err
+	}
+	// calculate the size and add as overhead.
+	cl, ok := link.(cidlink.Link)
+	if !ok {
+		return nil, 0, fmt.Errorf("unexpected non-cid linksystem")
+	}
+	rawlnk := cid.NewCidV1(uint64(multicodec.Raw), cl.Cid.Hash())
+	rn, err := ls.Load(ipld.LinkContext{}, cidlink.Link{Cid: rawlnk}, basicnode.Prototype__Bytes{})
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+	}
+	rnb, err := rn.AsBytes()
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+	}
+	return link, uint64(len(rnb)), nil
+}
+
 // Constants below are from
 // https://github.com/ipfs/go-unixfs/blob/ec6bb5a4c5efdc3a5bce99151b294f663ee9c08d/importer/helpers/helpers.go
 
