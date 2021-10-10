@@ -1,14 +1,20 @@
 package builder
 
 import (
-	"fmt"
 	"os"
 	"path"
 
 	"github.com/ipfs/go-unixfsnode/data"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/multiformats/go-multihash"
 )
+
+// https://github.com/ipfs/go-ipfs/pull/8114/files#diff-eec963b47a6e1080d9d8023b4e438e6e3591b4154f7379a7e728401d2055374aR319
+const shardSplitThreshold = 262144
+
+// https://github.com/ipfs/go-unixfs/blob/ec6bb5a4c5efdc3a5bce99151b294f663ee9c08d/io/directory.go#L29
+const defaultShardWidth = 256
 
 // BuildUnixFSRecursive returns a link pointing to the UnixFS node representing
 // the file or directory tree pointed to by `root`
@@ -49,10 +55,10 @@ func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, 
 }
 
 // BuildUnixFSDirectory creates a directory link over a collection of entries.
-// TODO: support sharded directories.
 func BuildUnixFSDirectory(entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Link, error) {
+	// TODO: flip to shards based on resulting node size estimate rather than link count.
 	if len(entries) > DefaultLinksPerBlock {
-		return nil, fmt.Errorf("this builder does support sharded directories")
+		return BuildUnixFSShardedDirectory(defaultShardWidth, multihash.MURMUR3_128, entries, ls)
 	}
 	ufd, err := BuildUnixFS(func(b *Builder) {
 		DataType(b, data.Data_Directory)

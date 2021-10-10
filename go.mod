@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/Stebalien/go-bitfield v0.0.1
+	github.com/ipfs/go-bitfield v1.0.0
 	github.com/ipfs/go-cid v0.0.7
 	github.com/ipfs/go-ipfs-chunker v0.0.1
 	github.com/ipfs/go-ipld-format v0.2.0
