@@ -28,7 +28,9 @@ func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, 
 		return nil, 0, err
 	}
 
-	if info.IsDir() {
+	m := info.Mode()
+	switch {
+	case m.IsDir():
 		entries, err := os.ReadDir(root)
 		if err != nil {
 			return nil, 0, err
@@ -47,23 +49,22 @@ func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, 
 		}
 		outLnk, err := BuildUnixFSDirectory(lnks, ls)
 		return outLnk, 0, err
-	}
-	if info.Mode().Type() == fs.ModeSymlink {
+	case m.Type() == fs.ModeSymlink:
 		content, err := os.Readlink(root)
 		if err != nil {
 			return nil, 0, err
 		}
 		return BuildUnixFSSymlink(content, ls)
-	} else if !info.Mode().IsRegular() {
+	case m.IsRegular():
+		fp, err := os.Open(root)
+		if err != nil {
+			return nil, 0, err
+		}
+		defer fp.Close()
+		return BuildUnixFSFile(fp, "", ls)
+	default:
 		return nil, 0, fmt.Errorf("cannot encode non regular file: %s", root)
 	}
-	// else: file
-	fp, err := os.Open(root)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer fp.Close()
-	return BuildUnixFSFile(fp, "", ls)
 }
 
 // estimateDirSize estimates if a directory is big enough that it warrents sharding
@@ -100,8 +101,7 @@ func BuildUnixFSDirectory(entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Lin
 	pbm.AssembleKey().AssignString("Data")
 	pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(ufd))
 	pbm.AssembleKey().AssignString("Links")
-	lnkBuilder := dagpb.Type.PBLinks.NewBuilder()
-	lnks, err := lnkBuilder.BeginList(int64(len(entries)))
+	lnks, err := pbm.AssembleValue().BeginList(int64(len(entries)))
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,6 @@ func BuildUnixFSDirectory(entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Lin
 	if err := lnks.Finish(); err != nil {
 		return nil, err
 	}
-	pbm.AssembleValue().AssignNode(lnkBuilder.Build())
 	if err := pbm.Finish(); err != nil {
 		return nil, err
 	}
