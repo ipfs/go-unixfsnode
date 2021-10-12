@@ -66,7 +66,9 @@ func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, 
 	}
 }
 
-// estimateDirSize estimates if a directory is big enough that it warrents sharding
+// estimateDirSize estimates if a directory is big enough that it warrents sharding.
+// The estimate is the sum over the len(linkName) + bytelen(linkHash)
+// https://github.com/ipfs/go-unixfs/blob/master/io/directory.go#L152-L162
 func estimateDirSize(entries []dagpb.PBLink) int {
 	s := 0
 	for _, e := range entries {
