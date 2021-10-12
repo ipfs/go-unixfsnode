@@ -21,7 +21,6 @@ const defaultShardWidth = 256
 
 // BuildUnixFSRecursive returns a link pointing to the UnixFS node representing
 // the file or directory tree pointed to by `root`
-// TODO: support symlinks
 func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
 	info, err := os.Lstat(root)
 	if err != nil {
