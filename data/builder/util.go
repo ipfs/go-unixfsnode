@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+	"math/bits"
 )
 
 // Common code from go-unixfs/hamt/util.go
@@ -41,4 +42,15 @@ func (hb hashBits) slice(offset, width int) int {
 		out += hb.slice(offset+leftb, width-leftb)
 		return out
 	}
+}
+
+func logtwo(v int) (int, error) {
+	if v <= 0 {
+		return 0, fmt.Errorf("hamt size should be a power of two")
+	}
+	lg2 := bits.TrailingZeros(uint(v))
+	if 1<<uint(lg2) != v {
+		return 0, fmt.Errorf("hamt size should be a power of two")
+	}
+	return lg2, nil
 }

@@ -13,6 +13,9 @@ import (
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/multiformats/go-multicodec"
 	multihash "github.com/multiformats/go-multihash/core"
+
+	// raw needed for opening as bytes
+	_ "github.com/ipld/go-ipld-prime/codec/raw"
 )
 
 // BuildUnixFSFile creates a dag of ipld Nodes representing file data.
@@ -151,11 +154,11 @@ func fileTreeRecursive(depth int, children []ipld.Link, childLen []uint64, src c
 	rawlnk := cid.NewCidV1(uint64(multicodec.Raw), cl.Cid.Hash())
 	rn, err := ls.Load(ipld.LinkContext{}, cidlink.Link{Cid: rawlnk}, basicnode.Prototype__Bytes{})
 	if err != nil {
-		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes: %w", err)
 	}
 	rnb, err := rn.AsBytes()
 	if err != nil {
-		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+		return nil, 0, fmt.Errorf("could not parse dagpb node as bytes: %w", err)
 	}
 	return link, totalSize + uint64(len(rnb)), nil
 }
@@ -227,11 +230,11 @@ func BuildUnixFSSymlink(content string, ls *ipld.LinkSystem) (ipld.Link, uint64,
 	rawlnk := cid.NewCidV1(uint64(multicodec.Raw), cl.Cid.Hash())
 	rn, err := ls.Load(ipld.LinkContext{}, cidlink.Link{Cid: rawlnk}, basicnode.Prototype__Bytes{})
 	if err != nil {
-		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes: %w", err)
 	}
 	rnb, err := rn.AsBytes()
 	if err != nil {
-		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes")
+		return nil, 0, fmt.Errorf("could not re-interpret dagpb node as bytes: %w", err)
 	}
 	return link, uint64(len(rnb)), nil
 }

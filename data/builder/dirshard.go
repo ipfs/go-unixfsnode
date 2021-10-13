@@ -12,10 +12,11 @@ import (
 
 type shard struct {
 	// metadata about the shard
-	hasher uint64
-	size   int
-	width  int
-	depth  int
+	hasher  uint64
+	size    int
+	sizeLg2 int
+	width   int
+	depth   int
 
 	children map[int]entry
 }
@@ -51,25 +52,35 @@ func BuildUnixFSShardedDirectory(size int, hasher uint64, entries []dagpb.PBLink
 		})
 	}
 
+	sizeLg2, err := logtwo(size)
+	if err != nil {
+		return nil, err
+	}
+
 	sharder := shard{
-		hasher: hasher,
-		size:   size,
-		width:  len(fmt.Sprintf("%X", size-1)),
-		depth:  0,
+		hasher:  hasher,
+		size:    size,
+		sizeLg2: sizeLg2,
+		width:   len(fmt.Sprintf("%X", size-1)),
+		depth:   0,
 
 		children: make(map[int]entry),
 	}
 
 	for _, entry := range hamtEntries {
-		sharder.add(entry)
+		err := sharder.add(entry)
+		if err != nil {
+			return nil, err
+		}
 	}
+	fmt.Printf("sharder to serialize, %d children (%d)\n", len(sharder.children), len(hamtEntries))
 
 	return sharder.serialize(ls)
 }
 
 func (s *shard) add(lnk hamtLink) error {
 	// get the bucket for lnk
-	bucket, err := lnk.hash.Slice(s.depth*s.size, s.size)
+	bucket, err := lnk.hash.Slice(s.depth*s.sizeLg2, s.sizeLg2)
 	if err != nil {
 		return err
 	}
@@ -86,6 +97,7 @@ func (s *shard) add(lnk hamtLink) error {
 		&shard{
 			hasher:   s.hasher,
 			size:     s.size,
+			sizeLg2:  s.sizeLg2,
 			width:    s.width,
 			depth:    s.depth + 1,
 			children: make(map[int]entry),
@@ -123,6 +135,7 @@ func (s *shard) serialize(ls *ipld.LinkSystem) (ipld.Link, error) {
 		Data(b, s.bitmap())
 		Fanout(b, uint64(s.size))
 	})
+	fmt.Printf("shard: %+v\n", ufd)
 	if err != nil {
 		return nil, err
 	}
