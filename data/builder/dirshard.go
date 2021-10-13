@@ -41,11 +41,11 @@ func BuildUnixFSShardedDirectory(size int, hasher uint64, entries []dagpb.PBLink
 	if err != nil {
 		return nil, err
 	}
-	he := make([]hamtLink, 0, len(entries))
+	hamtEntries := make([]hamtLink, 0, len(entries))
 	for _, e := range entries {
 		name := e.Name.Must().String()
 		sum := h.Sum([]byte(name))
-		he = append(he, hamtLink{
+		hamtEntries = append(hamtEntries, hamtLink{
 			sum,
 			e,
 		})
@@ -60,8 +60,8 @@ func BuildUnixFSShardedDirectory(size int, hasher uint64, entries []dagpb.PBLink
 		children: make(map[int]entry),
 	}
 
-	for _, e := range he {
-		sharder.add(e)
+	for _, entry := range hamtEntries {
+		sharder.add(entry)
 	}
 
 	return sharder.serialize(ls)
