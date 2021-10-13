@@ -38,6 +38,4 @@ func TestBuildUnixFSFile(t *testing.T) {
 	if _, err := storage.OpenRead(ipld.LinkContext{}, f); err != nil {
 		t.Fatal("expected top of file to be in store.")
 	}
-
-	return
 }
