@@ -15,7 +15,7 @@ require (
 	github.com/ipfs/go-merkledag v0.3.2
 	github.com/ipfs/go-unixfs v0.2.4
 	github.com/ipld/go-codec-dagpb v1.3.0
-	github.com/ipld/go-ipld-prime v0.12.4-0.20211013215610-76353188a8a6
+	github.com/ipld/go-ipld-prime v0.12.4-0.20211014180653-3ba656a3bc6b
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/multiformats/go-multicodec v0.3.0
 	github.com/multiformats/go-multihash v0.0.17-0.20211012170226-654b06d7912a
