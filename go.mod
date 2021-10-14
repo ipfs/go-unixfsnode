@@ -18,7 +18,7 @@ require (
 	github.com/ipld/go-ipld-prime v0.12.4-0.20211013215610-76353188a8a6
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/multiformats/go-multicodec v0.3.0
-	github.com/multiformats/go-multihash v0.0.17-0.20211013230636-971a35b6edf2
+	github.com/multiformats/go-multihash v0.0.17-0.20211012170226-654b06d7912a
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/atomic v1.7.0 // indirect

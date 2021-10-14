@@ -44,6 +44,7 @@ func BuildUnixFSShardedDirectory(size int, hasher uint64, entries []dagpb.PBLink
 	var h hash.Hash
 	var err error
 	// TODO: use the multihash registry once murmur3 behavior is encoded there.
+	// https://github.com/multiformats/go-multihash/pull/150
 	if hasher == hamt.HashMurmur3 {
 		h = murmur3.New64()
 	} else {
