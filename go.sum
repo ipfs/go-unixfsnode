@@ -280,8 +280,6 @@ github.com/multiformats/go-multihash v0.0.14/go.mod h1:VdAWLKTwram9oKAatUcLxBNUj
 github.com/multiformats/go-multihash v0.0.15/go.mod h1:D6aZrWNLFTV/ynMpKsNtB40mJzmCl4jb1alC0OvHiHg=
 github.com/multiformats/go-multihash v0.0.17-0.20211012170226-654b06d7912a h1:zq4kIpOSKshyuBTNmPMRG/XIP5PlH4M+kk3kz7FbSoU=
 github.com/multiformats/go-multihash v0.0.17-0.20211012170226-654b06d7912a/go.mod h1:rhm8ul8hQFEC1hEgrxrvkY/k/k8aOTRKanxCPVANMQs=
-github.com/multiformats/go-multihash v0.0.17-0.20211013230636-971a35b6edf2 h1:gmJIXPl/LE3dXLii1Xce8QsTJax02FoJMPsXBtTg6Jw=
-github.com/multiformats/go-multihash v0.0.17-0.20211013230636-971a35b6edf2/go.mod h1:RJlXsxt6vHGaia+S8We0ErjhojtKzPP2AH4+kYM7k84=
 github.com/multiformats/go-multistream v0.1.0 h1:UpO6jrsjqs46mqAK3n6wKRYFhugss9ArzbyUzU+4wkQ=
 github.com/multiformats/go-multistream v0.1.0/go.mod h1:fJTiDfXJVmItycydCnNx4+wSzZ5NwG2FEVAI30fiovg=
 github.com/multiformats/go-varint v0.0.5/go.mod h1:3Ls8CIEsrijN6+B7PbrXRPxHRPuXSrVKRY101jdMZYE=
