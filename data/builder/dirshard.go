@@ -2,12 +2,15 @@ package builder
 
 import (
 	"fmt"
+	"hash"
 
 	bitfield "github.com/ipfs/go-bitfield"
 	"github.com/ipfs/go-unixfsnode/data"
+	"github.com/ipfs/go-unixfsnode/hamt"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/multiformats/go-multihash"
+	"github.com/spaolacci/murmur3"
 )
 
 type shard struct {
@@ -38,9 +41,16 @@ type hamtLink struct {
 // than is typically allowed to fit in a standard IPFS single-block unixFS directory.
 func BuildUnixFSShardedDirectory(size int, hasher uint64, entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Link, error) {
 	// hash the entries
-	h, err := multihash.GetHasher(hasher)
-	if err != nil {
-		return nil, err
+	var h hash.Hash
+	var err error
+	// TODO: use the multihash registry once murmur3 behavior is encoded there.
+	if hasher == hamt.HashMurmur3 {
+		h = murmur3.New64()
+	} else {
+		h, err = multihash.GetHasher(hasher)
+		if err != nil {
+			return nil, err
+		}
 	}
 	hamtEntries := make([]hamtLink, 0, len(entries))
 	for _, e := range entries {
