@@ -72,12 +72,13 @@ func BuildUnixFSRecursive(root string, ls *ipld.LinkSystem) (ipld.Link, uint64, 
 func estimateDirSize(entries []dagpb.PBLink) int {
 	s := 0
 	for _, e := range entries {
+		s += len(e.Name.Must().String())
 		lnk := e.Hash.Link()
 		cl, ok := lnk.(cidlink.Link)
 		if ok {
-			s += len(e.Name.Must().String()) + cl.ByteLen()
+			s += cl.ByteLen()
 		} else {
-			s += len(e.Name.Must().String()) + len(lnk.String())
+			s += len(lnk.Binary())
 		}
 	}
 	return s
@@ -99,9 +100,15 @@ func BuildUnixFSDirectory(entries []dagpb.PBLink, ls *ipld.LinkSystem) (ipld.Lin
 	if err != nil {
 		return nil, err
 	}
-	pbm.AssembleKey().AssignString("Data")
-	pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(ufd))
-	pbm.AssembleKey().AssignString("Links")
+	if err = pbm.AssembleKey().AssignString("Data"); err != nil {
+		return nil, err
+	}
+	if err = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(ufd)); err != nil {
+		return nil, err
+	}
+	if err = pbm.AssembleKey().AssignString("Links"); err != nil {
+		return nil, err
+	}
 	lnks, err := pbm.AssembleValue().BeginList(int64(len(entries)))
 	if err != nil {
 		return nil, err

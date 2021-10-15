@@ -37,7 +37,7 @@ func BuildUnixFSFile(r io.Reader, chunker string, ls *ipld.LinkSystem) (ipld.Lin
 	var prevLen []uint64
 	depth := 1
 	for {
-		root, size, err := fileTreeRecursive(depth, prev[:], prevLen[:], s, ls)
+		root, size, err := fileTreeRecursive(depth, prev, prevLen, s, ls)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -126,20 +126,39 @@ func fileTreeRecursive(depth int, children []ipld.Link, childLen []uint64, src c
 
 	// Pack into the dagpb node.
 	dpbb := dagpb.Type.PBNode.NewBuilder()
-	pbm, _ := dpbb.BeginMap(2)
-	pblb, _ := pbm.AssembleEntry("Links")
-	pbl, _ := pblb.BeginList(int64(len(children)))
+	pbm, err := dpbb.BeginMap(2)
+	if err != nil {
+		return nil, 0, err
+	}
+	pblb, err := pbm.AssembleEntry("Links")
+	if err != nil {
+		return nil, 0, err
+	}
+	pbl, err := pblb.BeginList(int64(len(children)))
+	if err != nil {
+		return nil, 0, err
+	}
 	for i, c := range children {
 		pbln, err := BuildUnixFSDirectoryEntry("", int64(blksizes[i]), c)
 		if err != nil {
 			return nil, 0, err
 		}
-		_ = pbl.AssembleValue().AssignNode(pbln)
+		if err = pbl.AssembleValue().AssignNode(pbln); err != nil {
+			return nil, 0, err
+		}
 	}
-	_ = pbl.Finish()
-	_ = pbm.AssembleKey().AssignString("Data")
-	_ = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node))
-	_ = pbm.Finish()
+	if err = pbl.Finish(); err != nil {
+		return nil, 0, err
+	}
+	if err = pbm.AssembleKey().AssignString("Data"); err != nil {
+		return nil, 0, err
+	}
+	if err = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node)); err != nil {
+		return nil, 0, err
+	}
+	if err = pbm.Finish(); err != nil {
+		return nil, 0, err
+	}
 	pbn := dpbb.Build()
 
 	link, err := ls.Store(ipld.LinkContext{}, fileLinkProto, pbn)
@@ -210,12 +229,26 @@ func BuildUnixFSSymlink(content string, ls *ipld.LinkSystem) (ipld.Link, uint64,
 	if err != nil {
 		return nil, 0, err
 	}
-	pblb, _ := pbm.AssembleEntry("Links")
-	pbl, _ := pblb.BeginList(0)
-	_ = pbl.Finish()
-	_ = pbm.AssembleKey().AssignString("Data")
-	_ = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node))
-	_ = pbm.Finish()
+	pblb, err := pbm.AssembleEntry("Links")
+	if err != nil {
+		return nil, 0, err
+	}
+	pbl, err := pblb.BeginList(0)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err = pbl.Finish(); err != nil {
+		return nil, 0, err
+	}
+	if err = pbm.AssembleKey().AssignString("Data"); err != nil {
+		return nil, 0, err
+	}
+	if err = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node)); err != nil {
+		return nil, 0, err
+	}
+	if err = pbm.Finish(); err != nil {
+		return nil, 0, err
+	}
 	pbn := dpbb.Build()
 
 	link, err := ls.Store(ipld.LinkContext{}, fileLinkProto, pbn)

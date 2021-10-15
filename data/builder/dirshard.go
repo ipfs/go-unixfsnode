@@ -84,7 +84,6 @@ func BuildUnixFSShardedDirectory(size int, hasher uint64, entries []dagpb.PBLink
 			return nil, err
 		}
 	}
-	fmt.Printf("sharder to serialize, %d children (%d)\n", len(sharder.children), len(hamtEntries))
 
 	return sharder.serialize(ls)
 }
@@ -146,7 +145,6 @@ func (s *shard) serialize(ls *ipld.LinkSystem) (ipld.Link, error) {
 		Data(b, s.bitmap())
 		Fanout(b, uint64(s.size))
 	})
-	fmt.Printf("shard: %+v\n", ufd)
 	if err != nil {
 		return nil, err
 	}
@@ -155,9 +153,15 @@ func (s *shard) serialize(ls *ipld.LinkSystem) (ipld.Link, error) {
 	if err != nil {
 		return nil, err
 	}
-	pbm.AssembleKey().AssignString("Data")
-	pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(ufd))
-	pbm.AssembleKey().AssignString("Links")
+	if err = pbm.AssembleKey().AssignString("Data"); err != nil {
+		return nil, err
+	}
+	if err = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(ufd)); err != nil {
+		return nil, err
+	}
+	if err = pbm.AssembleKey().AssignString("Links"); err != nil {
+		return nil, err
+	}
 
 	lnkBuilder := dagpb.Type.PBLinks.NewBuilder()
 	lnks, err := lnkBuilder.BeginList(int64(len(s.children)))
