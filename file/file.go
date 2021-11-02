@@ -7,7 +7,9 @@ import (
 
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
+	"github.com/multiformats/go-multicodec"
 )
 
 // NewUnixFSFile attempts to construct an ipld node from the base protobuf node representing the
@@ -74,7 +76,7 @@ func (s *shardNodeFile) Read(p []byte) (int, error) {
 				return 0, err
 			}
 			if pbl, ok := lnk.(dagpb.PBLink); ok {
-				target, err := s.lsys.Load(ipld.LinkContext{Ctx: s.ctx}, pbl.Hash.Link(), basicnode.Prototype.Any)
+				target, err := s.lsys.Load(ipld.LinkContext{Ctx: s.ctx}, pbl.Hash.Link(), protoFor(pbl.Hash.Link()))
 				if err != nil {
 					return 0, err
 				}
@@ -96,6 +98,15 @@ func (s *shardNodeFile) Read(p []byte) (int, error) {
 		s.done = true
 	}
 	return n, err
+}
+
+func protoFor(link ipld.Link) ipld.NodePrototype {
+	if lc, ok := link.(cidlink.Link); ok {
+		if lc.Cid.Prefix().Codec == uint64(multicodec.DagPb) {
+			return dagpb.Type.PBNode
+		}
+	}
+	return basicnode.Prototype.Any
 }
 
 func (s *shardNodeFile) Kind() ipld.Kind {
@@ -170,6 +181,7 @@ func (s *shardNodeFile) LookupBySegment(seg ipld.PathSegment) (ipld.Node, error)
 	return nil, ipld.ErrWrongKind{}
 }
 
+// shardded files / nodes look like dagpb nodes.
 func (s *shardNodeFile) Prototype() ipld.NodePrototype {
-	return basicnode.Prototype__Bytes{}
+	return dagpb.Type.PBNode
 }
