@@ -57,7 +57,7 @@ type shardNodeFile struct {
 var _ ipld.Node = (*shardNodeFile)(nil)
 
 func (s *shardNodeFile) Read(p []byte) (int, error) {
-	if s.done == true {
+	if s.done {
 		return 0, io.EOF
 	}
 	// collect the sub-nodes on first use
