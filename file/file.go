@@ -2,14 +2,9 @@ package file
 
 import (
 	"context"
-	"fmt"
 	"io"
 
-	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/multiformats/go-multicodec"
 )
 
 // NewUnixFSFile attempts to construct an ipld node from the base protobuf node representing the
@@ -21,6 +16,17 @@ func NewUnixFSFile(ctx context.Context, substrate ipld.Node, lsys *ipld.LinkSyst
 		// A raw / single-node file.
 		return &singleNodeFile{substrate, 0}, nil
 	}
+	// see if it's got children.
+	links, err := substrate.LookupByString("Links")
+	if err != nil {
+		return nil, err
+	}
+	lli := links.ListIterator()
+	if lli.Done() {
+		// no children.
+		return newWrappedNode(substrate)
+	}
+
 	return &shardNodeFile{ctx, lsys, substrate, false, nil}, nil
 }
 
@@ -46,142 +52,4 @@ func (f *singleNodeFile) Read(p []byte) (int, error) {
 	n := copy(p, buf[f.ptr:])
 	f.ptr += n
 	return n, nil
-}
-
-type shardNodeFile struct {
-	ctx       context.Context
-	lsys      *ipld.LinkSystem
-	substrate ipld.Node
-	done      bool
-	rdr       io.Reader
-}
-
-var _ ipld.Node = (*shardNodeFile)(nil)
-
-func (s *shardNodeFile) Read(p []byte) (int, error) {
-	if s.done {
-		return 0, io.EOF
-	}
-	// collect the sub-nodes on first use
-	if s.rdr == nil {
-		links, err := s.substrate.LookupByString("Links")
-		if err != nil {
-			return 0, err
-		}
-		readers := make([]io.Reader, 0)
-		lnki := links.ListIterator()
-		for !lnki.Done() {
-			_, lnk, err := lnki.Next()
-			if err != nil {
-				return 0, err
-			}
-			if pbl, ok := lnk.(dagpb.PBLink); ok {
-				target, err := s.lsys.Load(ipld.LinkContext{Ctx: s.ctx}, pbl.Hash.Link(), protoFor(pbl.Hash.Link()))
-				if err != nil {
-					return 0, err
-				}
-
-				asFSNode, err := NewUnixFSFile(s.ctx, target, s.lsys)
-				if err != nil {
-					return 0, err
-				}
-				readers = append(readers, asFSNode)
-			} else {
-				return 0, fmt.Errorf("unsupported link type: %T", lnk)
-			}
-		}
-		s.rdr = io.MultiReader(readers...)
-	}
-	n, err := s.rdr.Read(p)
-	if err == io.EOF {
-		s.rdr = nil
-		s.done = true
-	}
-	return n, err
-}
-
-func protoFor(link ipld.Link) ipld.NodePrototype {
-	if lc, ok := link.(cidlink.Link); ok {
-		if lc.Cid.Prefix().Codec == uint64(multicodec.DagPb) {
-			return dagpb.Type.PBNode
-		}
-	}
-	return basicnode.Prototype.Any
-}
-
-func (s *shardNodeFile) Kind() ipld.Kind {
-	return ipld.Kind_Bytes
-}
-
-func (s *shardNodeFile) AsBytes() ([]byte, error) {
-	return io.ReadAll(s)
-}
-
-func (s *shardNodeFile) AsBool() (bool, error) {
-	return false, ipld.ErrWrongKind{TypeName: "bool", MethodName: "AsBool", AppropriateKind: ipld.KindSet_JustBytes}
-}
-
-func (s *shardNodeFile) AsInt() (int64, error) {
-	return 0, ipld.ErrWrongKind{TypeName: "int", MethodName: "AsInt", AppropriateKind: ipld.KindSet_JustBytes}
-}
-
-func (s *shardNodeFile) AsFloat() (float64, error) {
-	return 0, ipld.ErrWrongKind{TypeName: "float", MethodName: "AsFloat", AppropriateKind: ipld.KindSet_JustBytes}
-}
-
-func (s *shardNodeFile) AsString() (string, error) {
-	return "", ipld.ErrWrongKind{TypeName: "string", MethodName: "AsString", AppropriateKind: ipld.KindSet_JustBytes}
-}
-
-func (s *shardNodeFile) AsLink() (ipld.Link, error) {
-	return nil, ipld.ErrWrongKind{TypeName: "link", MethodName: "AsLink", AppropriateKind: ipld.KindSet_JustBytes}
-}
-
-func (s *shardNodeFile) AsNode() (ipld.Node, error) {
-	return nil, nil
-}
-
-func (s *shardNodeFile) Size() int {
-	return 0
-}
-
-func (s *shardNodeFile) IsAbsent() bool {
-	return false
-}
-
-func (s *shardNodeFile) IsNull() bool {
-	return s.substrate.IsNull()
-}
-
-func (s *shardNodeFile) Length() int64 {
-	return 0
-}
-
-func (s *shardNodeFile) ListIterator() ipld.ListIterator {
-	return nil
-}
-
-func (s *shardNodeFile) MapIterator() ipld.MapIterator {
-	return nil
-}
-
-func (s *shardNodeFile) LookupByIndex(idx int64) (ipld.Node, error) {
-	return nil, ipld.ErrWrongKind{}
-}
-
-func (s *shardNodeFile) LookupByString(key string) (ipld.Node, error) {
-	return nil, ipld.ErrWrongKind{}
-}
-
-func (s *shardNodeFile) LookupByNode(key ipld.Node) (ipld.Node, error) {
-	return nil, ipld.ErrWrongKind{}
-}
-
-func (s *shardNodeFile) LookupBySegment(seg ipld.PathSegment) (ipld.Node, error) {
-	return nil, ipld.ErrWrongKind{}
-}
-
-// shardded files / nodes look like dagpb nodes.
-func (s *shardNodeFile) Prototype() ipld.NodePrototype {
-	return dagpb.Type.PBNode
 }
