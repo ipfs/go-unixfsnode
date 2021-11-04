@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	dagpb "github.com/ipld/go-codec-dagpb"
@@ -39,20 +38,24 @@ func (s *shardNodeFile) Read(p []byte) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			if pbl, ok := lnk.(dagpb.PBLink); ok {
-				target, err := s.lsys.Load(ipld.LinkContext{Ctx: s.ctx}, pbl.Hash.Link(), protoFor(pbl.Hash.Link()))
-				if err != nil {
-					return 0, err
-				}
-
-				asFSNode, err := NewUnixFSFile(s.ctx, target, s.lsys)
-				if err != nil {
-					return 0, err
-				}
-				readers = append(readers, asFSNode)
-			} else {
-				return 0, fmt.Errorf("unsupported link type: %T", lnk)
+			lnkhash, err := lnk.LookupByString("Hash")
+			if err != nil {
+				return 0, err
 			}
+			lnklnk, err := lnkhash.AsLink()
+			if err != nil {
+				return 0, err
+			}
+			target, err := s.lsys.Load(ipld.LinkContext{Ctx: s.ctx}, lnklnk, protoFor(lnklnk))
+			if err != nil {
+				return 0, err
+			}
+
+			asFSNode, err := NewUnixFSFile(s.ctx, target, s.lsys)
+			if err != nil {
+				return 0, err
+			}
+			readers = append(readers, asFSNode)
 		}
 		s.rdr = io.MultiReader(readers...)
 	}

@@ -24,13 +24,11 @@ func newWrappedNode(substrate ipld.Node) (StreamableByteNode, error) {
 	if ufd.Data.Exists() {
 		return &singleNodeFile{
 			Node: ufd.Data.Must(),
-			ptr:  0,
 		}, nil
 	}
 
 	// an empty degenerate one.
 	return &singleNodeFile{
 		Node: basicnode.NewBytes(nil),
-		ptr:  0,
 	}, nil
 }

@@ -21,13 +21,17 @@ func NewUnixFSFile(ctx context.Context, substrate ipld.Node, lsys *ipld.LinkSyst
 	if err != nil {
 		return nil, err
 	}
-	lli := links.ListIterator()
-	if lli.Done() {
+	if links.Length() == 0 {
 		// no children.
 		return newWrappedNode(substrate)
 	}
 
-	return &shardNodeFile{ctx, lsys, substrate, false, nil}, nil
+	return &shardNodeFile{
+		ctx:       ctx,
+		lsys:      lsys,
+		substrate: substrate,
+		done:      false,
+		rdr:       nil}, nil
 }
 
 // A StreamableByteNode is an ipld.Node that can be streamed over. It is guaranteed to have a Bytes type.
@@ -38,7 +42,7 @@ type StreamableByteNode interface {
 
 type singleNodeFile struct {
 	ipld.Node
-	ptr int
+	offset int
 }
 
 func (f *singleNodeFile) Read(p []byte) (int, error) {
@@ -46,10 +50,10 @@ func (f *singleNodeFile) Read(p []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if f.ptr >= len(buf) {
+	if f.offset >= len(buf) {
 		return 0, io.EOF
 	}
-	n := copy(p, buf[f.ptr:])
-	f.ptr += n
+	n := copy(p, buf[f.offset:])
+	f.offset += n
 	return n, nil
 }
