@@ -41,8 +41,13 @@ func TestNamedV0File(t *testing.T) {
 	}
 	dpbn := dir.(directory.UnixFSBasicDir)
 	name, link := dpbn.Iterator().Next()
-	fmt.Printf("%s\n", name)
+	if name.String() != "b.txt" {
+		t.Fatal("unexpected filename")
+	}
 	fileNode, err := ls.Load(ipld.LinkContext{}, link.Link(), dagpb.Type.PBNode)
+	if err != nil {
+		t.Fatal(err)
+	}
 	file, err := file.NewUnixFSFile(context.Background(), fileNode, ls)
 	if err != nil {
 		t.Fatal(err)
