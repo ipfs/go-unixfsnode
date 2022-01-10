@@ -10,10 +10,10 @@ require (
 	github.com/ipfs/go-ipfs-util v0.0.2
 	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/ipfs/go-merkledag v0.5.1
-	github.com/ipfs/go-unixfs v0.2.4
+	github.com/ipfs/go-unixfs v0.3.1
 	github.com/ipld/go-car/v2 v2.1.1
 	github.com/ipld/go-codec-dagpb v1.3.0
-	github.com/ipld/go-ipld-prime v0.14.3
+	github.com/ipld/go-ipld-prime v0.14.4-0.20220110161855-fc09d6b768e9
 	github.com/multiformats/go-multicodec v0.3.1-0.20211210143421-a526f306ed2c
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/spaolacci/murmur3 v1.1.0
