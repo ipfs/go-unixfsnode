@@ -54,6 +54,7 @@ func (s *shardNodeFile) makeReader() (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
+		// todo: defer load until first read.
 		target, err := s.lsys.Load(ipld.LinkContext{Ctx: s.ctx}, lnklnk, protoFor(lnklnk))
 		if err != nil {
 			return nil, err
@@ -114,6 +115,9 @@ func (s *shardNodeFile) length() int64 {
 		return s.lengthFromLinks()
 	}
 	nodeDataBytes, err := nodeData.AsBytes()
+	if err != nil {
+		return s.lengthFromLinks()
+	}
 	ud, err := data.DecodeUnixFSData(nodeDataBytes)
 	if err != nil {
 		return s.lengthFromLinks()
