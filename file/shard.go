@@ -123,11 +123,10 @@ func (s *shardNodeFile) length() int64 {
 		return s.lengthFromLinks()
 	}
 	if ud.FileSize.Exists() {
-		fs, err := ud.FileSize.Must().AsInt()
-		if err != nil {
-			return s.lengthFromLinks()
+		if fs, err := ud.FileSize.Must().AsInt(); err == nil {
+			return int64(fs)
 		}
-		return fs
+		return s.lengthFromLinks()
 	}
 	return s.lengthFromLinks()
 }
