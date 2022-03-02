@@ -8,19 +8,19 @@ import (
 	"github.com/ipld/go-ipld-prime"
 )
 
-func newDeferredFileNode(ctx context.Context, lsys *ipld.LinkSystem, root ipld.Link) StreamableByteNode {
+func newDeferredFileNode(ctx context.Context, lsys *ipld.LinkSystem, root ipld.Link) LargeBytesNode {
 	dfn := deferredFileNode{
-		StreamableByteNode: nil,
-		root:               root,
-		l:                  lsys,
-		ctx:                ctx,
+		LargeBytesNode: nil,
+		root:           root,
+		l:              lsys,
+		ctx:            ctx,
 	}
-	dfn.StreamableByteNode = deferred{&dfn}
+	dfn.LargeBytesNode = deferred{&dfn}
 	return &dfn
 }
 
 type deferredFileNode struct {
-	StreamableByteNode
+	LargeBytesNode
 
 	root ipld.Link
 	l    *ipld.LinkSystem
@@ -37,7 +37,7 @@ func (d *deferredFileNode) resolve() error {
 	if err != nil {
 		return err
 	}
-	d.StreamableByteNode = asFSNode
+	d.LargeBytesNode = asFSNode
 	d.root = nil
 	d.l = nil
 	d.ctx = nil
@@ -48,25 +48,41 @@ type deferred struct {
 	*deferredFileNode
 }
 
+type deferredReader struct {
+	io.ReadSeeker
+	*deferredFileNode
+}
+
 func (d deferred) AsLargeBytes() (io.ReadSeeker, error) {
-	if err := d.deferredFileNode.resolve(); err != nil {
-		return nil, err
-	}
-	return d.deferredFileNode.AsLargeBytes()
+	return deferredReader{nil, d.deferredFileNode}, nil
 }
 
-func (d deferred) Read(p []byte) (int, error) {
-	if err := d.deferredFileNode.resolve(); err != nil {
-		return 0, err
+func (d deferredReader) Read(p []byte) (int, error) {
+	if d.ReadSeeker == nil {
+		if err := d.deferredFileNode.resolve(); err != nil {
+			return 0, err
+		}
+		rs, err := d.deferredFileNode.AsLargeBytes()
+		if err != nil {
+			return 0, err
+		}
+		d.ReadSeeker = rs
 	}
-	return d.deferredFileNode.Read(p)
+	return d.ReadSeeker.Read(p)
 }
 
-func (d deferred) Seek(offset int64, whence int) (int64, error) {
-	if err := d.deferredFileNode.resolve(); err != nil {
-		return 0, err
+func (d deferredReader) Seek(offset int64, whence int) (int64, error) {
+	if d.ReadSeeker == nil {
+		if err := d.deferredFileNode.resolve(); err != nil {
+			return 0, err
+		}
+		rs, err := d.deferredFileNode.AsLargeBytes()
+		if err != nil {
+			return 0, err
+		}
+		d.ReadSeeker = rs
 	}
-	return d.deferredFileNode.Seek(offset, whence)
+	return d.ReadSeeker.Seek(offset, whence)
 }
 
 func (d deferred) Kind() ipld.Kind {

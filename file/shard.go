@@ -16,14 +16,18 @@ type shardNodeFile struct {
 	ctx       context.Context
 	lsys      *ipld.LinkSystem
 	substrate ipld.Node
-	rdr       io.Reader
-	offset    int64
 }
 
 var _ ipld.Node = (*shardNodeFile)(nil)
 
-func (s *shardNodeFile) makeReader() (io.Reader, error) {
-	links, err := s.substrate.LookupByString("Links")
+type shardNodeReader struct {
+	*shardNodeFile
+	rdr    io.Reader
+	offset int64
+}
+
+func (s *shardNodeReader) makeReader() (io.Reader, error) {
+	links, err := s.shardNodeFile.substrate.LookupByString("Links")
 	if err != nil {
 		return nil, err
 	}
@@ -56,15 +60,19 @@ func (s *shardNodeFile) makeReader() (io.Reader, error) {
 			return nil, err
 		}
 		target := newDeferredFileNode(s.ctx, s.lsys, lnklnk)
+		tr, err := target.AsLargeBytes()
+		if err != nil {
+			return nil, err
+		}
 		// fastforward the first one if needed.
 		if at < s.offset {
-			_, err := target.Seek(s.offset-at, io.SeekStart)
+			_, err := tr.Seek(s.offset-at, io.SeekStart)
 			if err != nil {
 				return nil, err
 			}
 		}
 		at += childSize
-		readers = append(readers, target)
+		readers = append(readers, tr)
 	}
 	if len(readers) == 0 {
 		return nil, io.EOF
@@ -72,7 +80,7 @@ func (s *shardNodeFile) makeReader() (io.Reader, error) {
 	return io.MultiReader(readers...), nil
 }
 
-func (s *shardNodeFile) Read(p []byte) (int, error) {
+func (s *shardNodeReader) Read(p []byte) (int, error) {
 	// build reader
 	if s.rdr == nil {
 		rdr, err := s.makeReader()
@@ -85,7 +93,7 @@ func (s *shardNodeFile) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func (s *shardNodeFile) Seek(offset int64, whence int) (int64, error) {
+func (s *shardNodeReader) Seek(offset int64, whence int) (int64, error) {
 	if s.rdr != nil {
 		s.rdr = nil
 	}
@@ -150,7 +158,7 @@ func (s *shardNodeFile) lengthFromLinks() int64 {
 }
 
 func (s *shardNodeFile) AsLargeBytes() (io.ReadSeeker, error) {
-	return s, nil
+	return &shardNodeReader{s, nil, 0}, nil
 }
 
 func protoFor(link ipld.Link) ipld.NodePrototype {
@@ -167,7 +175,11 @@ func (s *shardNodeFile) Kind() ipld.Kind {
 }
 
 func (s *shardNodeFile) AsBytes() ([]byte, error) {
-	return io.ReadAll(s)
+	rdr, err := s.AsLargeBytes()
+	if err != nil {
+		return nil, err
+	}
+	return io.ReadAll(rdr)
 }
 
 func (s *shardNodeFile) AsBool() (bool, error) {

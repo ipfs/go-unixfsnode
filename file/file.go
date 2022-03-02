@@ -11,10 +11,10 @@ import (
 // root of a unixfs File.
 // It provides a `bytes` view over the file, along with access to io.Reader streaming access
 // to file data.
-func NewUnixFSFile(ctx context.Context, substrate ipld.Node, lsys *ipld.LinkSystem) (StreamableByteNode, error) {
+func NewUnixFSFile(ctx context.Context, substrate ipld.Node, lsys *ipld.LinkSystem) (LargeBytesNode, error) {
 	if substrate.Kind() == ipld.Kind_Bytes {
 		// A raw / single-node file.
-		return &singleNodeFile{substrate, 0}, nil
+		return &singleNodeFile{substrate}, nil
 	}
 	// see if it's got children.
 	links, err := substrate.LookupByString("Links")
@@ -30,27 +30,29 @@ func NewUnixFSFile(ctx context.Context, substrate ipld.Node, lsys *ipld.LinkSyst
 		ctx:       ctx,
 		lsys:      lsys,
 		substrate: substrate,
-		offset:    0,
-		rdr:       nil}, nil
+	}, nil
 }
 
-// A StreamableByteNode is an ipld.Node that can be streamed over. It is guaranteed to have a Bytes type.
-type StreamableByteNode interface {
+// A LargeBytesNode is an ipld.Node that can be streamed over. It is guaranteed to have a Bytes type.
+type LargeBytesNode interface {
 	ipld.Node
-	io.ReadSeeker
 	AsLargeBytes() (io.ReadSeeker, error)
 }
 
 type singleNodeFile struct {
 	ipld.Node
-	offset int
 }
 
 func (f *singleNodeFile) AsLargeBytes() (io.ReadSeeker, error) {
-	return f, nil
+	return &singleNodeReader{f, 0}, nil
 }
 
-func (f *singleNodeFile) Read(p []byte) (int, error) {
+type singleNodeReader struct {
+	ipld.Node
+	offset int
+}
+
+func (f *singleNodeReader) Read(p []byte) (int, error) {
 	buf, err := f.Node.AsBytes()
 	if err != nil {
 		return 0, err
@@ -63,7 +65,7 @@ func (f *singleNodeFile) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (f *singleNodeFile) Seek(offset int64, whence int) (int64, error) {
+func (f *singleNodeReader) Seek(offset int64, whence int) (int64, error) {
 	buf, err := f.Node.AsBytes()
 	if err != nil {
 		return 0, err
