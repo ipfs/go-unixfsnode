@@ -178,7 +178,8 @@ func (s *shardNodeFile) AsBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return io.ReadAll(rdr)
+	buf, err := io.ReadAll(rdr)
+	return buf, err
 }
 
 func (s *shardNodeFile) AsBool() (bool, error) {
