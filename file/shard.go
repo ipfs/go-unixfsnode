@@ -44,6 +44,7 @@ func (s *shardNodeFile) makeReader() (io.Reader, error) {
 			return nil, err
 		}
 		if s.offset > at+childSize {
+			at += childSize
 			continue
 		}
 		lnkhash, err := lnk.LookupByString("Hash")
@@ -54,25 +55,16 @@ func (s *shardNodeFile) makeReader() (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		// todo: defer load until first read.
-		target, err := s.lsys.Load(ipld.LinkContext{Ctx: s.ctx}, lnklnk, protoFor(lnklnk))
-		if err != nil {
-			return nil, err
-		}
-
-		asFSNode, err := NewUnixFSFile(s.ctx, target, s.lsys)
-		if err != nil {
-			return nil, err
-		}
+		target := newDeferredFileNode(s.ctx, s.lsys, lnklnk)
 		// fastforward the first one if needed.
 		if at < s.offset {
-			_, err := asFSNode.Seek(s.offset-at, io.SeekStart)
+			_, err := target.Seek(s.offset-at, io.SeekStart)
 			if err != nil {
 				return nil, err
 			}
 		}
 		at += childSize
-		readers = append(readers, asFSNode)
+		readers = append(readers, target)
 	}
 	if len(readers) == 0 {
 		return nil, io.EOF
