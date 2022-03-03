@@ -126,7 +126,6 @@ func (s *shardNodeFile) length() int64 {
 		if fs, err := ud.FileSize.Must().AsInt(); err == nil {
 			return int64(fs)
 		}
-		return s.lengthFromLinks()
 	}
 	return s.lengthFromLinks()
 }
@@ -178,8 +177,7 @@ func (s *shardNodeFile) AsBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	buf, err := io.ReadAll(rdr)
-	return buf, err
+	return io.ReadAll(rdr)
 }
 
 func (s *shardNodeFile) AsBool() (bool, error) {

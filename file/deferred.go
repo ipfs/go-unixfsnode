@@ -12,7 +12,7 @@ func newDeferredFileNode(ctx context.Context, lsys *ipld.LinkSystem, root ipld.L
 	dfn := deferredFileNode{
 		LargeBytesNode: nil,
 		root:           root,
-		l:              lsys,
+		lsys:           lsys,
 		ctx:            ctx,
 	}
 	dfn.LargeBytesNode = &deferred{&dfn}
@@ -23,26 +23,26 @@ type deferredFileNode struct {
 	LargeBytesNode
 
 	root ipld.Link
-	l    *ipld.LinkSystem
+	lsys *ipld.LinkSystem
 	ctx  context.Context
 }
 
 func (d *deferredFileNode) resolve() error {
-	if d.l == nil {
+	if d.lsys == nil {
 		return nil
 	}
-	target, err := d.l.Load(ipld.LinkContext{Ctx: d.ctx}, d.root, protoFor(d.root))
+	target, err := d.lsys.Load(ipld.LinkContext{Ctx: d.ctx}, d.root, protoFor(d.root))
 	if err != nil {
 		return err
 	}
 
-	asFSNode, err := NewUnixFSFile(d.ctx, target, d.l)
+	asFSNode, err := NewUnixFSFile(d.ctx, target, d.lsys)
 	if err != nil {
 		return err
 	}
 	d.LargeBytesNode = asFSNode
 	d.root = nil
-	d.l = nil
+	d.lsys = nil
 	d.ctx = nil
 	return nil
 }
