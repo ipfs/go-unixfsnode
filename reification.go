@@ -17,7 +17,12 @@ import (
 func Reify(lnkCtx ipld.LinkContext, maybePBNodeRoot ipld.Node, lsys *ipld.LinkSystem) (ipld.Node, error) {
 	pbNode, ok := maybePBNodeRoot.(dagpb.PBNode)
 	if !ok {
-		return maybePBNodeRoot, nil
+		// see if the node has the right structure anyway
+		pbb := dagpb.Type.PBNode.NewBuilder()
+		if err := pbb.AssignNode(maybePBNodeRoot); err != nil {
+			return maybePBNodeRoot, nil
+		}
+		pbNode = pbb.Build().(dagpb.PBNode)
 	}
 	if !pbNode.FieldData().Exists() {
 		// no data field, therefore, not UnixFS
