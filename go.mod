@@ -3,7 +3,6 @@ module github.com/ipfs/go-unixfsnode
 go 1.17
 
 require (
-	github.com/Stebalien/go-bitfield v1.0.0
 	github.com/ipfs/go-bitfield v1.0.0
 	github.com/ipfs/go-cid v0.2.0
 	github.com/ipfs/go-ipfs-chunker v0.0.1
