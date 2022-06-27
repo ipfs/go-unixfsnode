@@ -13,7 +13,9 @@ import (
 	"github.com/ipld/go-car/v2/blockstore"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 )
 
 func TestRootV0File(t *testing.T) {
@@ -29,6 +31,74 @@ func TestRootV0File(t *testing.T) {
 	}
 	if !bytes.Equal(fc, []byte("hello world\n")) {
 		t.Errorf("file content does not match: %s", string(fc))
+	}
+}
+
+func TestBasicnodeReify(t *testing.T) {
+	baseFile := "./fixtures/QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o.car"
+	root, ls := open(baseFile, t)
+	nb := basicnode.Prototype.Any.NewBuilder()
+	err := datamodel.Copy(root, nb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicroot := nb.Build()
+	file, err := unixfsnode.Reify(ipld.LinkContext{}, basicroot, ls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file == basicroot {
+		t.Fatal("node pass-through with Reify()")
+	}
+	fc, err := file.AsBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(fc, []byte("hello world\n")) {
+		t.Errorf("file content does not match: %s", string(fc))
+	}
+}
+
+func TestReifyDagPB(t *testing.T) {
+	baseFile := "./fixtures/QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o.car"
+	root, ls := open(baseFile, t)
+	file, err := unixfsnode.Reify(ipld.LinkContext{}, root, ls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file == root {
+		t.Fatal("node pass-through with Reify()")
+	}
+	fc, err := file.AsBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(fc, []byte("hello world\n")) {
+		t.Errorf("file content does not match: %s", string(fc))
+	}
+}
+
+func TestBasicnodeReifyDagPBFails(t *testing.T) {
+	baseFile := "./fixtures/QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o.car"
+	root, ls := open(baseFile, t)
+	nb := basicnode.Prototype.Any.NewBuilder()
+	err := datamodel.Copy(root, nb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicroot := nb.Build()
+	// we expect this to pass through without being interpreted as UnixFS since
+	// ReifyDagPB is strict
+	file, err := unixfsnode.ReifyDagPB(ipld.LinkContext{}, basicroot, ls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file != basicroot {
+		t.Fatal("node did not pass-through Reify")
+	}
+	_, err = file.AsBytes()
+	if err == nil {
+		t.Fatal("should not be able to AsBytes() unreified node")
 	}
 }
 

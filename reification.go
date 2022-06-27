@@ -12,6 +12,22 @@ import (
 	"github.com/ipld/go-ipld-prime"
 )
 
+// ReifyDagPB looks at an ipld Node and tries to interpret it as a UnixFSNode
+// if successful, it returns the UnixFSNode.
+//
+// ReifyDagPB strictly requires that an incoming node be a
+// github.com/ipld/go-codec-dagpb#PBNode type in order to reify it. Use this
+// reification method if you want to apply the strict form of the UnixFS
+// specification by type checking (note that a type check of PBNode does not
+// guarantee that the data was DAG-PB encoded, nor does the reverse hold as
+// there is currently no way to determine original codec by inspecting a Node).
+func ReifyDagPB(lnkCtx ipld.LinkContext, maybePBNodeRoot ipld.Node, lsys *ipld.LinkSystem) (ipld.Node, error) {
+	if _, ok := maybePBNodeRoot.(dagpb.PBNode); !ok {
+		return maybePBNodeRoot, nil
+	}
+	return Reify(lnkCtx, maybePBNodeRoot, lsys)
+}
+
 // Reify looks at an ipld Node and tries to interpret it as a UnixFSNode
 // if successful, it returns the UnixFSNode
 func Reify(lnkCtx ipld.LinkContext, maybePBNodeRoot ipld.Node, lsys *ipld.LinkSystem) (ipld.Node, error) {
