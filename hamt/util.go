@@ -88,10 +88,16 @@ func maxPadLength(nd data.UnixFSData) int {
 	return len(fmt.Sprintf("%X", nd.FieldFanout().Must().Int()-1))
 }
 
-func bitField(nd data.UnixFSData) bitfield.Bitfield {
-	bf := bitfield.NewBitfield(int(nd.FieldFanout().Must().Int()))
+const maximumHamtWidth = 1 << 10
+
+func bitField(nd data.UnixFSData) (bitfield.Bitfield, error) {
+	fanout := int(nd.FieldFanout().Must().Int())
+	if fanout > maximumHamtWidth {
+		return nil, fmt.Errorf("hamt witdh (%d) exceed maximum allowed (%d)", fanout, maximumHamtWidth)
+	}
+	bf := bitfield.NewBitfield(fanout)
 	bf.SetBytes(nd.FieldData().Must().Bytes())
-	return bf
+	return bf, nil
 }
 
 func checkLogTwo(v int) error {
