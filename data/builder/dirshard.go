@@ -133,23 +133,30 @@ func (s *shard) formatLinkName(name string, idx int) string {
 }
 
 // bitmap calculates the bitmap of which links in the shard are set.
-func (s *shard) bitmap() []byte {
-	bm := bitfield.NewBitfield(s.size)
+func (s *shard) bitmap() ([]byte, error) {
+	bm, err := bitfield.NewBitfield(s.size)
+	if err != nil {
+		return nil, err
+	}
 	for i := 0; i < s.size; i++ {
 		if _, ok := s.children[i]; ok {
 			bm.SetBit(i)
 		}
 	}
-	return bm.Bytes()
+	return bm.Bytes(), nil
 }
 
 // serialize stores the concrete representation of this shard in the link system and
 // returns a link to it.
 func (s *shard) serialize(ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
+	bm, err := s.bitmap()
+	if err != nil {
+		return nil, 0, err
+	}
 	ufd, err := BuildUnixFS(func(b *Builder) {
 		DataType(b, data.Data_HAMTShard)
 		HashType(b, s.hasher)
-		Data(b, s.bitmap())
+		Data(b, bm)
 		Fanout(b, uint64(s.size))
 	})
 	if err != nil {

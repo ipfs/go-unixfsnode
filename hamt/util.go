@@ -95,7 +95,10 @@ func bitField(nd data.UnixFSData) (bitfield.Bitfield, error) {
 	if fanout > maximumHamtWidth {
 		return nil, fmt.Errorf("hamt witdh (%d) exceed maximum allowed (%d)", fanout, maximumHamtWidth)
 	}
-	bf := bitfield.NewBitfield(fanout)
+	bf, err := bitfield.NewBitfield(fanout)
+	if err != nil {
+		return nil, err
+	}
 	bf.SetBytes(nd.FieldData().Must().Bytes())
 	return bf, nil
 }

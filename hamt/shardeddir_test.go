@@ -42,7 +42,10 @@ func makeDir(ds format.DAGService, size int) ([]string, *legacy.Shard, error) {
 func makeDirWidth(ds format.DAGService, size, width int) ([]string, *legacy.Shard, error) {
 	ctx := context.Background()
 
-	s, _ := legacy.NewShard(ds, width)
+	s, err := legacy.NewShard(ds, width)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	var dirs []string
 	for i := 0; i < size; i++ {
@@ -53,8 +56,11 @@ func makeDirWidth(ds format.DAGService, size, width int) ([]string, *legacy.Shar
 
 	for i := 0; i < len(dirs); i++ {
 		nd := ft.EmptyDirNode()
-		ds.Add(ctx, nd)
-		err := s.Set(ctx, dirs[i], nd)
+		err := ds.Add(ctx, nd)
+		if err != nil {
+			return nil, nil, err
+		}
+		err = s.Set(ctx, dirs[i], nd)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -108,7 +114,7 @@ func mockDag() (format.DAGService, *ipld.LinkSystem) {
 
 func TestBasicSet(t *testing.T) {
 	ds, lsys := mockDag()
-	for _, w := range []int{128, 256, 512, 1024, 2048, 4096} {
+	for _, w := range []int{128, 256, 512, 1024} {
 		t.Run(fmt.Sprintf("BasicSet%d", w), func(t *testing.T) {
 			names, s, err := makeDirWidth(ds, 1000, w)
 			require.NoError(t, err)
