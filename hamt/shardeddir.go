@@ -42,7 +42,10 @@ func NewUnixFSHAMTShard(ctx context.Context, substrate dagpb.PBNode, data data.U
 		return nil, err
 	}
 	shardCache := make(map[ipld.Link]*_UnixFSHAMTShard, substrate.FieldLinks().Length())
-	bf := bitField(data)
+	bf, err := bitField(data)
+	if err != nil {
+		return nil, err
+	}
 	return &_UnixFSHAMTShard{
 		ctx:          ctx,
 		_substrate:   substrate,
