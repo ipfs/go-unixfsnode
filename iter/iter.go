@@ -5,9 +5,9 @@ import (
 	"github.com/ipld/go-ipld-prime"
 )
 
-// PBLinkItr behaves like an list of links iterator, even thought he HAMT behavior is more complicated
+// PBLinkItr behaves like an list of links iterator, even thought the HAMT behavior is more complicated
 type PBLinkItr interface {
-	Next() (int64, dagpb.PBLink)
+	Next() (int64, dagpb.PBLink, error)
 	Done() bool
 }
 
@@ -25,7 +25,10 @@ type UnixFSDir__MapItr struct {
 }
 
 func (itr *UnixFSDir__MapItr) Next() (k ipld.Node, v ipld.Node, err error) {
-	_, next := itr._substrate.Next()
+	_, next, err := itr._substrate.Next()
+	if err != nil {
+		return nil, nil, err
+	}
 	if next == nil {
 		return nil, nil, ipld.ErrIteratorOverread{}
 	}
@@ -58,7 +61,10 @@ func NewUnixFSDirIterator(itr PBLinkItr, transformName TransformNameFunc) *UnixF
 	return &UnixFSDir__Itr{itr, transformName}
 }
 func (itr *UnixFSDir__Itr) Next() (k dagpb.String, v dagpb.Link) {
-	_, next := itr._substrate.Next()
+	_, next, err := itr._substrate.Next()
+	if err != nil {
+		return nil, nil
+	}
 	if next == nil {
 		return nil, nil
 	}
@@ -70,7 +76,7 @@ func (itr *UnixFSDir__Itr) Next() (k dagpb.String, v dagpb.Link) {
 		return name, next.FieldHash()
 	}
 	nb := dagpb.Type.String.NewBuilder()
-	err := nb.AssignString("")
+	err = nb.AssignString("")
 	if err != nil {
 		return nil, nil
 	}
