@@ -196,33 +196,36 @@ type _UnixFSShardedDir__ListItr struct {
 	total      int64
 }
 
-func (itr *_UnixFSShardedDir__ListItr) Next() (int64, dagpb.PBLink) {
-	next := itr.next()
+func (itr *_UnixFSShardedDir__ListItr) Next() (int64, dagpb.PBLink, error) {
+	next, err := itr.next()
+	if err != nil {
+		return -1, nil, err
+	}
 	if next == nil {
-		return -1, next
+		return -1, nil, nil
 	}
 	total := itr.total
 	itr.total++
-	return total, next
+	return total, next, nil
 }
 
-func (itr *_UnixFSShardedDir__ListItr) next() dagpb.PBLink {
+func (itr *_UnixFSShardedDir__ListItr) next() (dagpb.PBLink, error) {
 
 	if itr.childIter == nil {
 		if itr._substrate.Done() {
-			return nil
+			return nil, nil
 		}
 		_, next := itr._substrate.Next()
 		isValue, err := isValueLink(next, itr.maxPadLen)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		if isValue {
-			return next
+			return next, nil
 		}
 		child, err := itr.nd.loadChild(next)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		itr.childIter = &_UnixFSShardedDir__ListItr{
 			_substrate: child._substrate.FieldLinks().Iterator(),
@@ -231,11 +234,14 @@ func (itr *_UnixFSShardedDir__ListItr) next() dagpb.PBLink {
 		}
 
 	}
-	_, next := itr.childIter.Next()
+	_, next, err := itr.childIter.Next()
+	if err != nil {
+		return nil, err
+	}
 	if itr.childIter.Done() {
 		itr.childIter = nil
 	}
-	return next
+	return next, nil
 }
 
 func (itr *_UnixFSShardedDir__ListItr) Done() bool {
