@@ -5,11 +5,11 @@ go 1.19
 require (
 	github.com/ipfs/go-bitfield v1.1.0
 	github.com/ipfs/go-cid v0.3.2
-	github.com/ipfs/go-ipfs-chunker v0.0.1
+	github.com/ipfs/go-ipfs-chunker v0.0.5
 	github.com/ipfs/go-ipfs-util v0.0.2
 	github.com/ipfs/go-ipld-format v0.4.0
 	github.com/ipfs/go-merkledag v0.10.0
-	github.com/ipfs/go-unixfs v0.4.3
+	github.com/ipfs/go-unixfs v0.4.4
 	github.com/ipld/go-car/v2 v2.8.0
 	github.com/ipld/go-codec-dagpb v1.6.0
 	github.com/ipld/go-ipld-prime v0.20.0
