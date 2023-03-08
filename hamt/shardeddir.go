@@ -197,6 +197,8 @@ type _UnixFSShardedDir__ListItr struct {
 }
 
 func (itr *_UnixFSShardedDir__ListItr) Next() (int64, dagpb.PBLink, error) {
+	total := itr.total
+	itr.total++
 	next, err := itr.next()
 	if err != nil {
 		return -1, nil, err
@@ -204,13 +206,10 @@ func (itr *_UnixFSShardedDir__ListItr) Next() (int64, dagpb.PBLink, error) {
 	if next == nil {
 		return -1, nil, nil
 	}
-	total := itr.total
-	itr.total++
 	return total, next, nil
 }
 
 func (itr *_UnixFSShardedDir__ListItr) next() (dagpb.PBLink, error) {
-
 	if itr.childIter == nil {
 		if itr._substrate.Done() {
 			return nil, nil
@@ -232,14 +231,15 @@ func (itr *_UnixFSShardedDir__ListItr) next() (dagpb.PBLink, error) {
 			nd:         child,
 			maxPadLen:  maxPadLength(child.data),
 		}
-
 	}
 	_, next, err := itr.childIter.Next()
+	if itr.childIter.Done() {
+		// do this even on error to make sure we don't overrun a shard where the
+		// end is missing and the user is ignoring NotFound errors
+		itr.childIter = nil
+	}
 	if err != nil {
 		return nil, err
-	}
-	if itr.childIter.Done() {
-		itr.childIter = nil
 	}
 	return next, nil
 }
