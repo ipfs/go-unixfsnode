@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"sort"
 	"testing"
 	"time"
@@ -16,10 +17,12 @@ import (
 	ft "github.com/ipfs/go-unixfs"
 	legacy "github.com/ipfs/go-unixfs/hamt"
 	"github.com/ipfs/go-unixfsnode/hamt"
+	"github.com/ipld/go-car/v2/storage"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/fluent/qp"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -205,4 +208,84 @@ func TestFindNonExisting(t *testing.T) {
 		_, err := hamtShard.LookupByString(key)
 		require.EqualError(t, err, schema.ErrNoSuchField{Field: ipld.PathSegmentOfString(key)}.Error())
 	}
+}
+
+func TestIncompleteShardedIteration(t *testing.T) {
+	ctx := context.Background()
+	req := require.New(t)
+
+	fixture := "./fixtures/wikipedia-cryptographic-hash-function.car"
+	f, err := os.Open(fixture)
+	req.NoError(err)
+	defer f.Close()
+	carstore, err := storage.OpenReadable(f)
+	req.NoError(err)
+	lsys := cidlink.DefaultLinkSystem()
+	lsys.TrustedStorage = true
+	lsys.SetReadStorage(carstore)
+
+	// classic recursive go-ipld-prime map iteration, being forgiving about
+	// NotFound block loads to see what we end up with
+
+	kvs := make(map[string]string)
+	var iterNotFound int
+	blockNotFound := make(map[string]struct{})
+
+	var iter func(string, ipld.Link)
+	iter = func(dir string, lnk ipld.Link) {
+		nd, err := lsys.Load(ipld.LinkContext{Ctx: ctx}, lnk, basicnode.Prototype.Any)
+		if nf, ok := err.(interface{ NotFound() bool }); ok && nf.NotFound() {
+			// got a named link that we can't load
+			blockNotFound[dir] = struct{}{}
+			return
+		}
+		req.NoError(err)
+		if nd.Kind() == ipld.Kind_Bytes {
+			bv, err := nd.AsBytes()
+			req.NoError(err)
+			kvs[dir] = string(bv)
+			return
+		}
+
+		nb := dagpb.Type.PBNode.NewBuilder()
+		req.NoError(nb.AssignNode(nd))
+		pbn := nb.Build()
+		hamtShard, err := hamt.AttemptHAMTShardFromNode(ctx, pbn, &lsys)
+		req.NoError(err)
+
+		mi := hamtShard.MapIterator()
+		for !mi.Done() {
+			k, v, err := mi.Next()
+			if nf, ok := err.(interface{ NotFound() bool }); ok && nf.NotFound() {
+				// internal shard link that won't load, we don't know what it might
+				// point to
+				iterNotFound++
+				continue
+			}
+			req.NoError(err)
+			ks, err := k.AsString()
+			req.NoError(err)
+			req.Equal(ipld.Kind_Link, v.Kind())
+			lv, err := v.AsLink()
+			req.NoError(err)
+			iter(dir+"/"+ks, lv)
+		}
+	}
+	// walk the tree
+	iter("", cidlink.Link{Cid: carstore.Roots()[0]})
+
+	req.Len(kvs, 1)
+	req.Contains(kvs, "/wiki/Cryptographic_hash_function")
+	req.Contains(kvs["/wiki/Cryptographic_hash_function"], "<title>Cryptographic hash function</title>\n")
+	req.Equal(iterNotFound, 570) // tried to load 570 blocks that were not in the CAR
+	req.Len(blockNotFound, 110)  // 110 blocks, for named links, were not found in the CAR
+	// some of the root block links
+	req.Contains(blockNotFound, "/favicon.ico")
+	req.Contains(blockNotFound, "/index.html")
+	req.Contains(blockNotFound, "/zimdump_version")
+	// some of the shard links
+	req.Contains(blockNotFound, "/wiki/UK_railway_Signal")
+	req.Contains(blockNotFound, "/wiki/Australian_House")
+	req.Contains(blockNotFound, "/wiki/ICloud_Drive")
+	req.Contains(blockNotFound, "/wiki/Édouard_Bamberger")
 }
