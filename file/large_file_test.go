@@ -5,10 +5,13 @@ package file_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"strconv"
+	"sync"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	ipfsutil "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/ipfs/go-unixfsnode/file"
@@ -63,4 +66,99 @@ func TestLargeFileReader(t *testing.T) {
 			t.Fatal("Not equal at offset", i, "expected", len(buf[i:]), "got", len(ob))
 		}
 	}
+}
+
+func TestLargeFileReaderReadsOnlyNecessaryBlocks(t *testing.T) {
+	tracker, ls := mockTrackingLinkSystem()
+
+	// Make random file with 1024 bytes.
+	buf := make([]byte, 1024)
+	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+	r := bytes.NewReader(buf)
+
+	// Build UnixFS File chunked in 256 byte parts.
+	f, _, err := builder.BuildUnixFSFile(r, "size-256", ls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the file.
+	fr, err := ls.Load(ipld.LinkContext{}, f, dagpb.Type.PBNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create it.
+	ufn, err := file.NewUnixFSFile(context.Background(), fr, ls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Before Read", tracker.cids)
+	// Prepare tracker for read.
+	tracker.resetTracker()
+
+	rs, err := ufn.AsLargeBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Move the pointer to the 2nd block of the file.
+	_, err = rs.Seek(256, io.SeekStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Read the 3rd and 4th blocks of the file.
+	portion := make([]byte, 512)
+	_, err = io.ReadAtLeast(rs, portion, 512)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Just be sure we read the right bytes.
+	if !bytes.Equal(portion, buf[256:768]) {
+		t.Fatal(fmt.Errorf("did not read correct bytes"))
+	}
+
+	// We must have read 2 CIDs for each of the 2 blocks!
+	if l := len(tracker.cids); l != 2 {
+		t.Fatal(fmt.Errorf("expected to have read 2 blocks, read %d", l))
+	}
+}
+
+type trackingReadOpener struct {
+	cidlink.Memory
+	mu   sync.Mutex
+	cids []cid.Cid
+}
+
+func (ro *trackingReadOpener) resetTracker() {
+	ro.mu.Lock()
+	ro.cids = nil
+	ro.mu.Unlock()
+}
+
+func (ro *trackingReadOpener) OpenRead(lnkCtx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
+	cidLink, ok := lnk.(cidlink.Link)
+	if !ok {
+		return nil, fmt.Errorf("invalid link type for loading: %v", lnk)
+	}
+
+	ro.mu.Lock()
+	ro.cids = append(ro.cids, cidLink.Cid)
+	ro.mu.Unlock()
+
+	return ro.Memory.OpenRead(lnkCtx, lnk)
+}
+
+func mockTrackingLinkSystem() (*trackingReadOpener, *ipld.LinkSystem) {
+	ls := cidlink.DefaultLinkSystem()
+	storage := &trackingReadOpener{Memory: cidlink.Memory{}}
+
+	ls.StorageWriteOpener = storage.OpenWrite
+	ls.StorageReadOpener = storage.OpenRead
+	ls.TrustedStorage = true
+
+	return storage, &ls
 }
