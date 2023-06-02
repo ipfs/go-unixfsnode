@@ -94,7 +94,6 @@ func TestLargeFileReaderReadsOnlyNecessaryBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log("Before Read", tracker.cids)
 	// Prepare tracker for read.
 	tracker.resetTracker()
 
