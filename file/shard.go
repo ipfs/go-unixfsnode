@@ -50,7 +50,7 @@ func (s *shardNodeReader) makeReader() (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		if s.offset > at+childSize {
+		if s.offset >= at+childSize {
 			at += childSize
 			continue
 		}
