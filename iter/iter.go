@@ -3,6 +3,8 @@ package iter
 import (
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/fluent/qp"
 )
 
 // pbLinkItr behaves like an list of links iterator, even thought the HAMT behavior is more complicated
@@ -50,6 +52,47 @@ func (itr *UnixFSDir__MapItr) Next() (k ipld.Node, v ipld.Node, err error) {
 
 func (itr *UnixFSDir__MapItr) Done() bool {
 	return itr._substrate.Done()
+}
+
+func NewUnixFSDirListIterator(itr pbLinkItr, transformName TransformNameFunc) ipld.ListIterator {
+	return &UnixFSDir__ListItr{itr, transformName}
+}
+
+func (itr *UnixFSDir__ListItr) Next() (i int64, v ipld.Node, err error) {
+	i, next, err := itr._substrate.Next()
+	if err != nil {
+		return i, nil, err
+	}
+	if next == nil {
+		return i, nil, ipld.ErrIteratorOverread{}
+	}
+	if next.FieldName().Exists() {
+		name := next.FieldName().Must()
+		if itr.transformName != nil {
+			name = itr.transformName(name)
+		}
+		nd, err := qp.BuildMap(dagpb.Type.PBLink, 3, func(ma datamodel.MapAssembler) {
+			qp.MapEntry(ma, "Name", qp.Node(name))
+			if next.FieldTsize().Exists() {
+				qp.MapEntry(ma, "Tsize", qp.Node(next.FieldTsize().Must()))
+			}
+			qp.MapEntry(ma, "Hash", qp.Node(next.FieldHash()))
+		})
+		if err != nil {
+			return i, nil, err
+		}
+		return i, nd, nil
+	}
+	return i, next, nil
+}
+
+func (itr *UnixFSDir__ListItr) Done() bool {
+	return itr._substrate.Done()
+}
+
+type UnixFSDir__ListItr struct {
+	_substrate    pbLinkItr
+	transformName TransformNameFunc
 }
 
 type UnixFSDir__Itr struct {

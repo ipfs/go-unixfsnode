@@ -256,7 +256,14 @@ func (itr *_UnixFSShardedDir__ListItr) Done() bool {
 // can be expected that itr.Next will be called node.Length times
 // before itr.Done becomes true.
 func (n UnixFSHAMTShard) ListIterator() ipld.ListIterator {
-	return nil
+	maxPadLen := maxPadLength(n.data)
+	listItr := &_UnixFSShardedDir__ListItr{
+		_substrate: n.FieldLinks().Iterator(),
+		maxPadLen:  maxPadLen,
+		nd:         n,
+	}
+	st := stringTransformer{maxPadLen: maxPadLen}
+	return iter.NewUnixFSDirListIterator(listItr, st.transformNameNode)
 }
 
 // Length returns the length of a list, or the number of entries in a map,

@@ -70,7 +70,7 @@ func (n UnixFSBasicDir) MapIterator() ipld.MapIterator {
 // can be expected that itr.Next will be called node.Length times
 // before itr.Done becomes true.
 func (n UnixFSBasicDir) ListIterator() ipld.ListIterator {
-	return nil
+	return iter.NewUnixFSDirListIterator(&_UnixFSBasicDir__ListItr{n._substrate.Links.Iterator()}, nil)
 }
 
 // Length returns the length of a list, or the number of entries in a map,
