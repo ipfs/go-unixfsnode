@@ -33,11 +33,21 @@ func RandomFileName(r io.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	extIndex, err := getRandomIndex(r, len(extensions))
+	ext, err := RandomFileExtension(r)
 	if err != nil {
 		return "", err
 	}
-	return words[wordIndex] + extensions[extIndex], nil
+	return words[wordIndex] + ext, nil
+}
+
+// RandomFileExtension returns a random file extension, including '.'. This may
+// also return an empty string.
+func RandomFileExtension(r io.Reader) (string, error) {
+	index, err := getRandomIndex(r, len(extensions))
+	if err != nil {
+		return "", err
+	}
+	return extensions[index], nil
 }
 
 const wordData = `jabberwocky Snark whiffling borogoves mome raths brillig slithy toves outgrabe
