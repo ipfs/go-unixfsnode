@@ -174,6 +174,7 @@ func (s *shardNodeReader) Read(p []byte) (int, error) {
 		s.rdr = rdr
 	}
 	n, err := s.rdr.Read(p)
+	s.offset += int64(n)
 	return n, err
 }
 
