@@ -65,9 +65,12 @@ func NewUnixFSHAMTShardWithPreload(ctx context.Context, substrate dagpb.PBNode, 
 		return n, err
 	}
 
-	traverse := n.Length()
+	traverse, err := n.(*_UnixFSHAMTShard).length()
 	if traverse == -1 {
 		return n, fmt.Errorf("could not fully explore hamt during preload")
+	}
+	if err != nil {
+		return n, err
 	}
 
 	return n, nil
@@ -261,9 +264,9 @@ func (n UnixFSHAMTShard) ListIterator() ipld.ListIterator {
 
 // Length returns the length of a list, or the number of entries in a map,
 // or -1 if the node is not of list nor map kind.
-func (n UnixFSHAMTShard) Length() int64 {
+func (n UnixFSHAMTShard) length() (int64, error) {
 	if n.cachedLength != -1 {
-		return n.cachedLength
+		return n.cachedLength, nil
 	}
 	maxPadLen := maxPadLength(n.data)
 	total := int64(0)
@@ -272,20 +275,34 @@ func (n UnixFSHAMTShard) Length() int64 {
 		_, pbLink := itr.Next()
 		isValue, err := isValueLink(pbLink, maxPadLen)
 		if err != nil {
-			continue
+			return 0, err
 		}
 		if isValue {
 			total++
 		} else {
 			child, err := n.loadChild(pbLink)
 			if err != nil {
-				continue
+				return 0, err
 			}
-			total += child.Length()
+			cl, err := child.length()
+			if err != nil {
+				return 0, err
+			}
+			total += cl
 		}
 	}
 	n.cachedLength = total
-	return total
+	return total, nil
+}
+
+// Length returns the length of a list, or the number of entries in a map,
+// or -1 if the node is not of list nor map kind.
+func (n UnixFSHAMTShard) Length() int64 {
+	len, err := n.length()
+	if err != nil {
+		return 0
+	}
+	return len
 }
 
 func (n UnixFSHAMTShard) IsAbsent() bool {
