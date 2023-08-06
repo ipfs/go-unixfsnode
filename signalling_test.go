@@ -22,6 +22,9 @@ var exploreAllJson = mustDagJson(selectorparse.CommonSelector_ExploreAllRecursiv
 // explore interpret-as (~), next (>), match (.), interpreted as unixfs-preload
 var matchUnixfsPreloadJson = `{"~":{">":{".":{}},"as":"unixfs-preload"}}`
 
+// explore interpret-as (~), next (>), union (|) of match (.) and explore recursive (R) edge (@) with a depth of 1, interpreted as unixfs
+var matchUnixfsEntityJson = `{"~":{">":{"|":[{".":{}},{"R":{":>":{"a":{">":{"@":{}}}},"l":{"depth":1}}}]},"as":"unixfs"}}`
+
 // match interpret-as (~), next (>), match (.), interpreted as unixfs
 var matchUnixfsJson = `{"~":{">":{".":{}},"as":"unixfs"}}`
 
@@ -93,10 +96,16 @@ func TestUnixFSPathSelectorBuilder(t *testing.T) {
 			expextedSelector: exploreAllJson,
 		},
 		{
-			name:             "empty path shallow",
+			name:             "empty path shallow (preload)",
 			path:             "",
 			target:           unixfsnode.MatchUnixFSPreloadSelector,
 			expextedSelector: matchUnixfsPreloadJson,
+		},
+		{
+			name:             "empty path shallow (entity)",
+			path:             "",
+			target:           unixfsnode.MatchUnixFSEntitySelector,
+			expextedSelector: matchUnixfsEntityJson,
 		},
 		{
 			name:             "single field",
@@ -112,10 +121,16 @@ func TestUnixFSPathSelectorBuilder(t *testing.T) {
 			matchPath:        true,
 		},
 		{
-			name:             "single field shallow",
+			name:             "single field shallow (preload)",
 			path:             "/foo",
 			expextedSelector: jsonFields(matchUnixfsPreloadJson, "foo"),
 			target:           unixfsnode.MatchUnixFSPreloadSelector,
+		},
+		{
+			name:             "single field shallow (entity)",
+			path:             "/foo",
+			expextedSelector: jsonFields(matchUnixfsEntityJson, "foo"),
+			target:           unixfsnode.MatchUnixFSEntitySelector,
 		},
 		{
 			name:             "multiple fields",

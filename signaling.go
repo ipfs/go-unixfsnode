@@ -1,10 +1,13 @@
 package unixfsnode
 
 import (
+	"io"
+
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/linking"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
+	"github.com/ipld/go-ipld-prime/traversal"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 )
@@ -26,8 +29,28 @@ var ExploreAllRecursivelySelector = specBuilder(func(ssb builder.SelectorSpecBui
 // not, but not its contents.
 // MatchUnixfsPreloadSelector is precompiled for use with
 // UnixFSPathSelectorBuilder().
+//
+// NOTE: This selector may be deprecated in a future release. Users should
+// instead use MatchUnixFSEntitySelector instead, which is intended to have the
+// same effect but doesn't use the "unixfs-preload" ADL.
 var MatchUnixFSPreloadSelector = specBuilder(func(ssb builder.SelectorSpecBuilder) builder.SelectorSpec {
 	return ssb.ExploreInterpretAs("unixfs-preload", ssb.Matcher())
+})
+
+// MatchUnixFSEntitySelector is a selector that will match a single node and its
+// direct children.
+//
+// For UnixFS files, this will match the file and its blocks.
+//
+// For UnixFS directories, and will iterate through the list of child links but
+// will not iterate _into_ the child directories.
+var MatchUnixFSEntitySelector = specBuilder(func(ssb builder.SelectorSpecBuilder) builder.SelectorSpec {
+	return ssb.ExploreInterpretAs("unixfs", ssb.ExploreUnion(ssb.Matcher(),
+		ssb.ExploreRecursive(
+			selector.RecursionLimitDepth(1),
+			ssb.ExploreAll(ssb.ExploreRecursiveEdge()),
+		),
+	))
 })
 
 // MatchUnixFSSelector is a selector that will match a single node, similar to
@@ -40,6 +63,26 @@ var MatchUnixFSSelector = specBuilder(func(ssb builder.SelectorSpecBuilder) buil
 	return ssb.ExploreInterpretAs("unixfs", ssb.Matcher())
 })
 
+// BytesConsumingMatcher is a traversal.WalkMatching matcher function that
+// consumes the bytes of a LargeBytesNode where one is matched. Use this in
+// conjunction with the Match* selectors in this package to ensure that all
+// blocks of sharded files are loaded during a traversal, or that the subset
+// of blocks required to fulful a range selector are loaded.
+func BytesConsumingMatcher(p traversal.Progress, n datamodel.Node) error {
+	if lbn, ok := n.(datamodel.LargeBytesNode); ok {
+		rdr, err := lbn.AsLargeBytes()
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(io.Discard, rdr)
+		return err
+	}
+	return nil
+}
+
+// AddUnixFSReificationToLinkSystem will add both unixfs and unixfs-preload
+// reifiers to a LinkSystem. This is primarily useful for traversals that use
+// an interpretAs clause, such as Match* selectors in this package.
 func AddUnixFSReificationToLinkSystem(lsys *ipld.LinkSystem) {
 	if lsys.KnownReifiers == nil {
 		lsys.KnownReifiers = make(map[string]linking.NodeReifier)

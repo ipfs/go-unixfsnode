@@ -68,6 +68,43 @@ func TestLargeFileReader(t *testing.T) {
 	}
 }
 
+func TestLargeFileSeeker(t *testing.T) {
+	ls := cidlink.DefaultLinkSystem()
+	storage := cidlink.Memory{}
+	ls.StorageReadOpener = storage.OpenRead
+	ls.StorageWriteOpener = storage.OpenWrite
+
+	// Make random file with 1024 bytes.
+	buf := make([]byte, 1024)
+	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+	r := bytes.NewReader(buf)
+
+	// Build UnixFS File chunked in 256 byte parts.
+	f, _, err := builder.BuildUnixFSFile(r, "size-256", &ls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the file.
+	fr, err := ls.Load(ipld.LinkContext{}, f, dagpb.Type.PBNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create it.
+	ufn, err := file.NewUnixFSFile(context.Background(), fr, &ls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rs, err := ufn.AsLargeBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testSeekIn1024ByteFile(t, rs)
+}
+
 func TestLargeFileReaderReadsOnlyNecessaryBlocks(t *testing.T) {
 	tracker, ls := mockTrackingLinkSystem()
 
