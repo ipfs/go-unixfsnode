@@ -1,16 +1,27 @@
-package builder
+package builder_test
 
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"math/rand"
 	"testing"
+
+	"github.com/ipfs/go-unixfsnode/data/builder"
+	"github.com/multiformats/go-multicodec"
+	multihash "github.com/multiformats/go-multihash/core"
 
 	"github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/go-unixfsnode/file"
+	carv1 "github.com/ipld/go-car"
+	"github.com/ipld/go-car/v2"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 )
 
 func TestBuildUnixFSFile(t *testing.T) {
@@ -23,7 +34,7 @@ func TestBuildUnixFSFile(t *testing.T) {
 	ls.StorageReadOpener = storage.OpenRead
 	ls.StorageWriteOpener = storage.OpenWrite
 
-	f, _, err := BuildUnixFSFile(r, "", &ls)
+	f, _, err := builder.BuildUnixFSFile(r, "", &ls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +54,61 @@ func TestBuildUnixFSFile(t *testing.T) {
 	}
 }
 
+func TestEstimateUnixFSFileDefaultChunking(t *testing.T) {
+	for i := 100; i < 1000000000; i *= 10 {
+		b := make([]byte, i)
+		rand.Read(b)
+
+		ls := cidlink.DefaultLinkSystem()
+		storage := cidlink.Memory{}
+		ls.StorageReadOpener = storage.OpenRead
+		nPB := 0
+
+		ls.StorageWriteOpener = func(lc linking.LinkContext) (io.Writer, linking.BlockWriteCommitter, error) {
+			w, bwc, err := storage.OpenWrite(lc)
+			return w, func(lnk ipld.Link) error {
+				if lnk.(cidlink.Link).Cid.Prefix().Codec == uint64(multicodec.DagPb) {
+					nPB++
+				}
+				return bwc(lnk)
+			}, err
+		}
+		rt, _, err := builder.BuildUnixFSFile(bytes.NewReader(b), "", &ls)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ob := bytes.NewBuffer(nil)
+		_, err = car.TraverseV1(context.Background(), &ls, rt.(cidlink.Link).Cid, selectorparse.CommonSelector_ExploreAllRecursively, ob)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fileLen := len(ob.Bytes())
+
+		estimate := builder.EstimateUnixFSFileDefaultChunking(uint64(i))
+		if estimate != uint64(fileLen) {
+			fmt.Printf("%d intermediate nodes.\n", nPB)
+			t.Fatalf("estimate for file length %d was %d. should be %d", i, estimate, fileLen)
+		}
+	}
+}
+
+func TestS(t *testing.T) {
+	p := cid.Prefix{
+		Version:  1,
+		Codec:    uint64(multicodec.DagPb),
+		MhType:   multihash.SHA2_256,
+		MhLength: 32,
+	}
+	rt, _ := p.Sum([]byte{0})
+	ch := carv1.CarHeader{
+		Roots:   []cid.Cid{rt},
+		Version: 1,
+	}
+	s, _ := carv1.HeaderSize(&ch)
+	t.Fatalf("hs: %d\n", s)
+}
+
 func TestUnixFSFileRoundtrip(t *testing.T) {
 	buf := make([]byte, 10*1024*1024)
 	u.NewSeededRand(0xdeadbeef).Read(buf)
@@ -53,7 +119,7 @@ func TestUnixFSFileRoundtrip(t *testing.T) {
 	ls.StorageReadOpener = storage.OpenRead
 	ls.StorageWriteOpener = storage.OpenWrite
 
-	f, _, err := BuildUnixFSFile(r, "", &ls)
+	f, _, err := builder.BuildUnixFSFile(r, "", &ls)
 	if err != nil {
 		t.Fatal(err)
 	}
