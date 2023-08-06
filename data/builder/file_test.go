@@ -3,19 +3,17 @@ package builder_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
-	"math/rand"
 	"testing"
 
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/multiformats/go-multicodec"
-	multihash "github.com/multiformats/go-multihash/core"
 
 	"github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/go-unixfsnode/file"
-	carv1 "github.com/ipld/go-car"
 	"github.com/ipld/go-car/v2"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
@@ -91,22 +89,6 @@ func TestEstimateUnixFSFileDefaultChunking(t *testing.T) {
 			t.Fatalf("estimate for file length %d was %d. should be %d", i, estimate, fileLen)
 		}
 	}
-}
-
-func TestS(t *testing.T) {
-	p := cid.Prefix{
-		Version:  1,
-		Codec:    uint64(multicodec.DagPb),
-		MhType:   multihash.SHA2_256,
-		MhLength: 32,
-	}
-	rt, _ := p.Sum([]byte{0})
-	ch := carv1.CarHeader{
-		Roots:   []cid.Cid{rt},
-		Version: 1,
-	}
-	s, _ := carv1.HeaderSize(&ch)
-	t.Fatalf("hs: %d\n", s)
 }
 
 func TestUnixFSFileRoundtrip(t *testing.T) {
