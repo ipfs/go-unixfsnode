@@ -69,7 +69,7 @@ func EstimateUnixFSFileDefaultChunking(dataLength uint64) uint64 {
 	cidExample, _ := leafLinkProto.Prefix.Sum([]byte{0})
 	cidLength := uint64(len(cidExample.Bytes()))
 
-	links := []uint64{}
+	var links []uint64
 	for i := uint64(0); i < blocks; i++ {
 		links = append(links, uint64(chunk.DefaultBlockSize))
 	}
