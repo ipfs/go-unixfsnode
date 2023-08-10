@@ -37,7 +37,7 @@ func (itr *UnixFSDir__MapItr) Next() (k ipld.Node, v ipld.Node, err error) {
 		if itr.transformName != nil {
 			name = itr.transformName(name)
 		}
-		return name, next.FieldHash(), nil
+		return name, &IterLink{next}, nil
 	}
 	nb := dagpb.Type.String.NewBuilder()
 	err = nb.AssignString("")
@@ -45,7 +45,7 @@ func (itr *UnixFSDir__MapItr) Next() (k ipld.Node, v ipld.Node, err error) {
 		return nil, nil, err
 	}
 	s := nb.Build()
-	return s, next.FieldHash(), nil
+	return s, &IterLink{next}, nil
 }
 
 func (itr *UnixFSDir__MapItr) Done() bool {
