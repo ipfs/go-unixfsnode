@@ -13,6 +13,7 @@ import (
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/multiformats/go-multicodec"
 	multihash "github.com/multiformats/go-multihash/core"
+	"github.com/multiformats/go-varint"
 
 	// raw needed for opening as bytes
 	_ "github.com/ipld/go-ipld-prime/codec/raw"
@@ -55,6 +56,91 @@ func BuildUnixFSFile(r io.Reader, chunker string, ls *ipld.LinkSystem) (ipld.Lin
 		prevLen = []uint64{size}
 		depth++
 	}
+}
+
+// EstimateUnixFSFile estimates the byte size of the car file that would be
+// needed to hold a UnixFS file containing data of the given length.
+func EstimateUnixFSFileDefaultChunking(dataLength uint64) uint64 {
+	blkSize := chunk.DefaultBlockSize
+	blocks := dataLength / uint64(blkSize)
+	remainder := dataLength % uint64(blkSize)
+
+	size := dataLength
+	cidExample, _ := leafLinkProto.Prefix.Sum([]byte{0})
+	cidLength := uint64(len(cidExample.Bytes()))
+
+	var links []uint64
+	for i := uint64(0); i < blocks; i++ {
+		links = append(links, uint64(chunk.DefaultBlockSize))
+	}
+	// account for the uvarint + cid length of each block of raw data.
+	size += uint64(len(links)) * (cidLength + uint64(varint.UvarintSize(cidLength+uint64(blkSize))))
+	if remainder > 0 {
+		links = append(links, remainder)
+		size += cidLength + uint64(varint.UvarintSize(cidLength+uint64(remainder)))
+	}
+
+	// account for the metadata overhead nodes.
+	ls := cidlink.DefaultLinkSystem()
+	storage := cidlink.Memory{}
+	ls.StorageReadOpener = storage.OpenRead
+	ls.StorageWriteOpener = storage.OpenWrite
+
+	icnt := 0
+	for len(links) > 1 {
+		nxtLnks := []uint64{}
+		for len(links) > 1 {
+			icnt++
+			children := uint64(DefaultLinksPerBlock)
+			if len(links) < DefaultLinksPerBlock {
+				children = uint64(len(links))
+			}
+			childrenLinks := links[:children]
+			links = links[children:]
+			totalSize := uint64(0)
+			for _, l := range childrenLinks {
+				totalSize += l
+			}
+
+			node, _ := BuildUnixFS(func(b *Builder) {
+				FileSize(b, totalSize)
+				BlockSizes(b, childrenLinks)
+			})
+
+			// Pack into the dagpb node.
+			dpbb := dagpb.Type.PBNode.NewBuilder()
+			pbm, _ := dpbb.BeginMap(2)
+			pblb, _ := pbm.AssembleEntry("Links")
+			pbl, _ := pblb.BeginList(int64(len(childrenLinks)))
+			for _, c := range childrenLinks {
+				pbln, _ := BuildUnixFSDirectoryEntry("", int64(c), cidlink.Link{Cid: cidExample})
+				pbl.AssembleValue().AssignNode(pbln)
+			}
+			pbl.Finish()
+			pbm.AssembleKey().AssignString("Data")
+			pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node))
+			pbm.Finish()
+			pbn := dpbb.Build()
+			pbLnk := ls.MustStore(ipld.LinkContext{}, fileLinkProto, pbn)
+			pbRcrd, _ := ls.LoadRaw(ipld.LinkContext{}, pbLnk)
+
+			// dagpb overhead
+			intermediateNodeSize := uint64(len(pbRcrd))
+
+			size += intermediateNodeSize + cidLength + uint64(varint.UvarintSize(cidLength+intermediateNodeSize))
+			nxtLnks = append(nxtLnks, totalSize)
+		}
+		if len(links) == 1 {
+			nxtLnks = append(nxtLnks, links[0])
+		}
+		links = nxtLnks
+	}
+	fmt.Printf("estimated %d intermeidate nodes\n", icnt)
+
+	// add the car header
+	size += 59
+
+	return size
 }
 
 var fileLinkProto = cidlink.LinkPrototype{
