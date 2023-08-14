@@ -1,6 +1,6 @@
 module github.com/ipfs/go-unixfsnode
 
-go 1.19
+go 1.20
 
 require (
 	github.com/ipfs/go-bitfield v1.1.0
