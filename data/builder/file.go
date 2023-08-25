@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-unixfsnode/data"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/multiformats/go-multicodec"
@@ -17,6 +18,38 @@ import (
 	// raw needed for opening as bytes
 	_ "github.com/ipld/go-ipld-prime/codec/raw"
 )
+
+type fileShardMeta struct {
+	link       datamodel.Link
+	byteSize   uint64
+	storedSize uint64
+}
+
+type fileShards []fileShardMeta
+
+func (fs fileShards) totalByteSize() uint64 {
+	var total uint64
+	for _, f := range fs {
+		total += f.byteSize
+	}
+	return total
+}
+
+func (fs fileShards) totalStoredSize() uint64 {
+	var total uint64
+	for _, f := range fs {
+		total += f.storedSize
+	}
+	return total
+}
+
+func (fs fileShards) byteSizes() []uint64 {
+	sizes := make([]uint64, len(fs))
+	for i, f := range fs {
+		sizes[i] = f.byteSize
+	}
+	return sizes
+}
 
 // BuildUnixFSFile creates a dag of ipld Nodes representing file data.
 // This recreates the functionality previously found in
@@ -28,31 +61,29 @@ import (
 //     data nodes are stored as raw bytes.
 //     ref: https://github.com/ipfs/go-mfs/blob/1b1fd06cff048caabeddb02d4dbf22d2274c7971/file.go#L50
 func BuildUnixFSFile(r io.Reader, chunker string, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
-	s, err := chunk.FromString(r, chunker)
+	src, err := chunk.FromString(r, chunker)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var prev []ipld.Link
-	var prevLen []uint64
+	var prev fileShards
 	depth := 1
 	for {
-		root, size, err := fileTreeRecursive(depth, prev, prevLen, s, ls)
+		next, err := fileTreeRecursive(depth, prev, src, ls)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		if prev != nil && prev[0] == root {
-			if root == nil {
+		if prev != nil && prev[0].link == next.link {
+			if next.link == nil {
 				node := basicnode.NewBytes([]byte{})
 				link, err := ls.Store(ipld.LinkContext{}, leafLinkProto, node)
 				return link, 0, err
 			}
-			return root, size, nil
+			return next.link, next.storedSize, nil
 		}
 
-		prev = []ipld.Link{root}
-		prevLen = []uint64{size}
+		prev = []fileShardMeta{next}
 		depth++
 	}
 }
@@ -75,102 +106,122 @@ var leafLinkProto = cidlink.LinkPrototype{
 	},
 }
 
-func fileTreeRecursive(depth int, children []ipld.Link, childLen []uint64, src chunk.Splitter, ls *ipld.LinkSystem) (ipld.Link, uint64, error) {
-	if depth == 1 && len(children) > 0 {
-		return nil, 0, fmt.Errorf("leaf nodes cannot have children")
-	} else if depth == 1 {
+// fileTreeRecursive packs a file into chunks recursively, returning a root for
+// this level of recursion, the number of file bytes consumed for this level of
+// recursion and and the number of bytes used to store this level of recursion.
+func fileTreeRecursive(
+	depth int,
+	children fileShards,
+	src chunk.Splitter,
+	ls *ipld.LinkSystem,
+) (fileShardMeta, error) {
+	if depth == 1 {
+		// file leaf, next chunk, encode as raw bytes, store and retuen
+		if len(children) > 0 {
+			return fileShardMeta{}, fmt.Errorf("leaf nodes cannot have children")
+		}
 		leaf, err := src.NextBytes()
-		if err == io.EOF {
-			return nil, 0, nil
-		} else if err != nil {
-			return nil, 0, err
+		if err != nil {
+			if err == io.EOF {
+				return fileShardMeta{}, nil
+			}
+			return fileShardMeta{}, err
 		}
 		node := basicnode.NewBytes(leaf)
-		return sizedStore(ls, leafLinkProto, node)
-	}
-	// depth > 1.
-	totalSize := uint64(0)
-	blksizes := make([]uint64, 0, DefaultLinksPerBlock)
-	if children == nil {
-		children = make([]ipld.Link, 0)
-	} else {
-		for i := range children {
-			blksizes = append(blksizes, childLen[i])
-			totalSize += childLen[i]
-		}
-	}
-	for len(children) < DefaultLinksPerBlock {
-		nxt, sz, err := fileTreeRecursive(depth-1, nil, nil, src, ls)
+		l, sz, err := sizedStore(ls, leafLinkProto, node)
 		if err != nil {
-			return nil, 0, err
-		} else if nxt == nil {
-			// eof
+			return fileShardMeta{}, err
+		}
+		return fileShardMeta{link: l, byteSize: uint64(len(leaf)), storedSize: sz}, nil
+	}
+
+	// depth > 1
+
+	if children == nil {
+		children = make(fileShards, 0)
+	}
+
+	// fill up the links for this level, if we need to go beyond
+	// DefaultLinksPerBlock we'll end up back here making a parallel tree
+	for len(children) < DefaultLinksPerBlock {
+		// descend down toward the leaves
+		next, err := fileTreeRecursive(depth-1, nil, src, ls)
+		if err != nil {
+			return fileShardMeta{}, err
+		} else if next.link == nil { // eof
 			break
 		}
-		totalSize += sz
-		children = append(children, nxt)
-		childLen = append(childLen, sz)
-		blksizes = append(blksizes, sz)
+		children = append(children, next)
 	}
+
 	if len(children) == 0 {
-		// empty case.
-		return nil, 0, nil
+		// empty case
+		return fileShardMeta{}, nil
 	} else if len(children) == 1 {
 		// degenerate case
-		return children[0], childLen[0], nil
+		return children[0], nil
 	}
 
-	// make the unixfs node.
+	// make the unixfs node
 	node, err := BuildUnixFS(func(b *Builder) {
-		FileSize(b, totalSize)
-		BlockSizes(b, blksizes)
+		FileSize(b, children.totalByteSize())
+		BlockSizes(b, children.byteSizes())
 	})
 	if err != nil {
-		return nil, 0, err
+		return fileShardMeta{}, err
 	}
-
-	// Pack into the dagpb node.
-	dpbb := dagpb.Type.PBNode.NewBuilder()
-	pbm, err := dpbb.BeginMap(2)
+	pbn, err := packFileChildren(node, children)
 	if err != nil {
-		return nil, 0, err
+		return fileShardMeta{}, err
 	}
-	pblb, err := pbm.AssembleEntry("Links")
-	if err != nil {
-		return nil, 0, err
-	}
-	pbl, err := pblb.BeginList(int64(len(children)))
-	if err != nil {
-		return nil, 0, err
-	}
-	for i, c := range children {
-		pbln, err := BuildUnixFSDirectoryEntry("", int64(blksizes[i]), c)
-		if err != nil {
-			return nil, 0, err
-		}
-		if err = pbl.AssembleValue().AssignNode(pbln); err != nil {
-			return nil, 0, err
-		}
-	}
-	if err = pbl.Finish(); err != nil {
-		return nil, 0, err
-	}
-	if err = pbm.AssembleKey().AssignString("Data"); err != nil {
-		return nil, 0, err
-	}
-	if err = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node)); err != nil {
-		return nil, 0, err
-	}
-	if err = pbm.Finish(); err != nil {
-		return nil, 0, err
-	}
-	pbn := dpbb.Build()
 
 	link, sz, err := sizedStore(ls, fileLinkProto, pbn)
 	if err != nil {
-		return nil, 0, err
+		return fileShardMeta{}, err
 	}
-	return link, totalSize + sz, nil
+	return fileShardMeta{
+		link:       link,
+		byteSize:   children.totalByteSize(),
+		storedSize: children.totalStoredSize() + sz,
+	}, nil
+}
+
+func packFileChildren(node data.UnixFSData, children fileShards) (datamodel.Node, error) {
+	dpbb := dagpb.Type.PBNode.NewBuilder()
+	pbm, err := dpbb.BeginMap(2)
+	if err != nil {
+		return nil, err
+	}
+	pblb, err := pbm.AssembleEntry("Links")
+	if err != nil {
+		return nil, err
+	}
+	pbl, err := pblb.BeginList(int64(len(children)))
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range children {
+		pbln, err := BuildUnixFSDirectoryEntry("", int64(c.storedSize), c.link)
+		if err != nil {
+			return nil, err
+		}
+		if err = pbl.AssembleValue().AssignNode(pbln); err != nil {
+			return nil, err
+		}
+	}
+	if err = pbl.Finish(); err != nil {
+		return nil, err
+	}
+	if err = pbm.AssembleKey().AssignString("Data"); err != nil {
+		return nil, err
+	}
+	if err = pbm.AssembleValue().AssignBytes(data.EncodeUnixFSData(node)); err != nil {
+		return nil, err
+	}
+	if err = pbm.Finish(); err != nil {
+		return nil, err
+	}
+	return dpbb.Build(), nil
 }
 
 // BuildUnixFSDirectoryEntry creates the link to a file or directory as it appears within a unixfs directory.

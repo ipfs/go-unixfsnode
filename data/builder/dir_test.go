@@ -3,11 +3,14 @@ package builder
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/ipfs/go-cid"
+	u "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/go-unixfsnode"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
@@ -19,17 +22,49 @@ func mkEntries(cnt int, ls *ipld.LinkSystem) ([]dagpb.PBLink, error) {
 	entries := make([]dagpb.PBLink, 0, cnt)
 	for i := 0; i < cnt; i++ {
 		r := bytes.NewBufferString(fmt.Sprintf("%d", i))
-		f, s, err := BuildUnixFSFile(r, "", ls)
-		if err != nil {
-			return nil, err
-		}
-		e, err := BuildUnixFSDirectoryEntry(fmt.Sprintf("file %d", i), int64(s), f)
+		e, err := mkEntry(r, fmt.Sprintf("file %d", i), ls)
 		if err != nil {
 			return nil, err
 		}
 		entries = append(entries, e)
 	}
 	return entries, nil
+}
+
+func mkEntry(r io.Reader, name string, ls *ipld.LinkSystem) (dagpb.PBLink, error) {
+	f, s, err := BuildUnixFSFile(r, "", ls)
+	if err != nil {
+		return nil, err
+	}
+	return BuildUnixFSDirectoryEntry(name, int64(s), f)
+}
+
+func TestBuildUnixFSFileWrappedInDirectory_Reference(t *testing.T) {
+	for _, tc := range referenceTestCases {
+		t.Run(strconv.Itoa(tc.size), func(t *testing.T) {
+			buf := make([]byte, tc.size)
+			u.NewSeededRand(0xdeadbeef).Read(buf)
+			r := bytes.NewReader(buf)
+
+			ls := cidlink.DefaultLinkSystem()
+			storage := cidlink.Memory{}
+			ls.StorageReadOpener = storage.OpenRead
+			ls.StorageWriteOpener = storage.OpenWrite
+
+			e, err := mkEntry(r, fmt.Sprintf("%d", tc.size), &ls)
+			require.NoError(t, err)
+			d, sz, err := BuildUnixFSDirectory([]dagpb.PBLink{e}, &ls)
+			require.NoError(t, err)
+			require.Equal(t, tc.wrappedExpected.String(), d.(cidlink.Link).Cid.String())
+
+			// check sz is the stored size of all blocks in the generated DAG
+			var totStored int
+			for _, blk := range storage.Bag {
+				totStored += len(blk)
+			}
+			require.Equal(t, totStored, int(sz))
+		})
+	}
 }
 
 func TestBuildUnixFSDirectory(t *testing.T) {
