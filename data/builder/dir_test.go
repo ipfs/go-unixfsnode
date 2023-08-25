@@ -15,6 +15,7 @@ import (
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,6 +66,40 @@ func TestBuildUnixFSFileWrappedInDirectory_Reference(t *testing.T) {
 			require.Equal(t, totStored, int(sz))
 		})
 	}
+}
+
+// Cross-impl reference test: directory of files with single character
+// names, starting from ' ' and ending with '~', but excluding the special
+// characters '/' and '.'. Each file should contain a single byte with the
+// same value as the character in its name. Files are added to a sharded
+// directory with a fanout of 16, using CIDv1 throughout, and should result
+// in the root CID of:
+//
+//	bafybeihnipspiyy3dctpcx7lv655qpiuy52d7b2fzs52dtrjqwmvbiux44
+func TestBuildUnixFSDirectoryShardAltFanout_Reference(t *testing.T) {
+	ls := cidlink.DefaultLinkSystem()
+	storage := cidlink.Memory{}
+	ls.StorageReadOpener = storage.OpenRead
+	ls.StorageWriteOpener = storage.OpenWrite
+	entries := make([]dagpb.PBLink, 0)
+	for ch := ' '; ch <= '~'; ch++ {
+		if ch == '/' || ch == '.' {
+			continue
+		}
+		s := string(ch)
+		r := bytes.NewBuffer([]byte(s))
+		e, err := mkEntry(r, s, &ls)
+		require.NoError(t, err)
+		entries = append(entries, e)
+	}
+	lnk, sz, err := BuildUnixFSShardedDirectory(16, multihash.MURMUR3X64_64, entries, &ls)
+	require.NoError(t, err)
+	var totStored int
+	for _, blk := range storage.Bag {
+		totStored += len(blk)
+	}
+	require.Equal(t, totStored, int(sz))
+	require.Equal(t, "bafybeihnipspiyy3dctpcx7lv655qpiuy52d7b2fzs52dtrjqwmvbiux44", lnk.String())
 }
 
 func TestBuildUnixFSDirectory(t *testing.T) {
