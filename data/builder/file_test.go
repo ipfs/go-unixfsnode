@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
+	ipfsutil "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/go-unixfsnode/file"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
@@ -50,7 +50,7 @@ func TestBuildUnixFSFile_Reference(t *testing.T) {
 	for _, tc := range referenceTestCases {
 		t.Run(strconv.Itoa(tc.size), func(t *testing.T) {
 			buf := make([]byte, tc.size)
-			u.NewSeededRand(0xdeadbeef).Read(buf)
+			ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
 			r := bytes.NewReader(buf)
 
 			ls := cidlink.DefaultLinkSystem()
@@ -74,7 +74,7 @@ func TestBuildUnixFSFile_Reference(t *testing.T) {
 
 func TestUnixFSFileRoundtrip(t *testing.T) {
 	buf := make([]byte, 10*1024*1024)
-	u.NewSeededRand(0xdeadbeef).Read(buf)
+	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
 	r := bytes.NewReader(buf)
 
 	ls := cidlink.DefaultLinkSystem()
