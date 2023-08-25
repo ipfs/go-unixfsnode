@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-unixfsnode/data"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/adl"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/multiformats/go-multicodec"
@@ -24,7 +25,7 @@ type shardNodeFile struct {
 	unpackLk sync.Once
 }
 
-var _ ipld.Node = (*shardNodeFile)(nil)
+var _ adl.ADL = (*shardNodeFile)(nil)
 
 type shardNodeReader struct {
 	*shardNodeFile
@@ -231,6 +232,10 @@ func (s *shardNodeFile) lengthFromLinks() int64 {
 
 func (s *shardNodeFile) AsLargeBytes() (io.ReadSeeker, error) {
 	return &shardNodeReader{s, nil, 0, 0}, nil
+}
+
+func (s *shardNodeFile) Substrate() ipld.Node {
+	return s.substrate
 }
 
 func protoFor(link ipld.Link) ipld.NodePrototype {

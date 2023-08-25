@@ -5,6 +5,8 @@ import (
 	"io"
 
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/adl"
+	"github.com/ipld/go-ipld-prime/datamodel"
 )
 
 // NewUnixFSFile attempts to construct an ipld node from the base protobuf node representing the
@@ -54,7 +56,7 @@ func NewUnixFSFileWithPreload(ctx context.Context, substrate ipld.Node, lsys *ip
 
 // A LargeBytesNode is an ipld.Node that can be streamed over. It is guaranteed to have a Bytes type.
 type LargeBytesNode interface {
-	ipld.Node
+	adl.ADL
 	AsLargeBytes() (io.ReadSeeker, error)
 }
 
@@ -64,6 +66,10 @@ type singleNodeFile struct {
 
 func (f *singleNodeFile) AsLargeBytes() (io.ReadSeeker, error) {
 	return &singleNodeReader{f, 0}, nil
+}
+
+func (f *singleNodeFile) Substrate() datamodel.Node {
+	return f.Node
 }
 
 type singleNodeReader struct {
