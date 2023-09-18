@@ -15,6 +15,7 @@ import (
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
+	"github.com/ipld/go-ipld-prime/traversal"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,7 +52,8 @@ func ToDirEntry(t *testing.T, linkSys linking.LinkSystem, rootCid cid.Cid, expec
 
 func toDirEntryRecursive(t *testing.T, linkSys linking.LinkSystem, rootCid cid.Cid, name string, expectFull bool) *DirEntry {
 	var proto datamodel.NodePrototype = dagpb.Type.PBNode
-	if rootCid.Prefix().Codec == cid.Raw {
+	isDagPb := rootCid.Prefix().Codec == cid.DagProtobuf
+	if !isDagPb {
 		proto = basicnode.Prototype.Any
 	}
 	node, err := linkSys.Load(linking.LinkContext{Ctx: context.TODO()}, cidlink.Link{Cid: rootCid}, proto)
@@ -73,18 +75,36 @@ func toDirEntryRecursive(t *testing.T, linkSys linking.LinkSystem, rootCid cid.C
 			Root:    rootCid,
 		}
 	}
-	// else is a directory
+
 	children := make([]DirEntry, 0)
-	for itr := node.MapIterator(); !itr.Done(); {
-		k, v, err := itr.Next()
+	if isDagPb {
+		// else is likely a directory
+		for itr := node.MapIterator(); !itr.Done(); {
+			k, v, err := itr.Next()
+			require.NoError(t, err)
+			childName, err := k.AsString()
+			require.NoError(t, err)
+			childLink, err := v.AsLink()
+			require.NoError(t, err)
+			child := toDirEntryRecursive(t, linkSys, childLink.(cidlink.Link).Cid, name+"/"+childName, expectFull)
+			children = append(children, *child)
+		}
+	} else {
+		// not a dag-pb node, let's pretend it is but using IPLD pathing rules
+		err := traversal.WalkLocal(node, func(prog traversal.Progress, n ipld.Node) error {
+			if n.Kind() == ipld.Kind_Link {
+				l, err := n.AsLink()
+				if err != nil {
+					return err
+				}
+				child := toDirEntryRecursive(t, linkSys, l.(cidlink.Link).Cid, name+"/"+prog.Path.String(), expectFull)
+				children = append(children, *child)
+			}
+			return nil
+		})
 		require.NoError(t, err)
-		childName, err := k.AsString()
-		require.NoError(t, err)
-		childLink, err := v.AsLink()
-		require.NoError(t, err)
-		child := toDirEntryRecursive(t, linkSys, childLink.(cidlink.Link).Cid, name+"/"+childName, expectFull)
-		children = append(children, *child)
 	}
+
 	return &DirEntry{
 		Path:     name,
 		Root:     rootCid,
@@ -112,7 +132,7 @@ func CompareDirEntries(t *testing.T, a, b DirEntry) {
 				CompareDirEntries(t, a.Children[i], b.Children[j])
 			}
 		}
-		require.True(t, found, fmt.Sprintf("%s child %s not found in b", a.Path, a.Children[i].Path))
+		require.True(t, found, fmt.Sprintf("@ path [%s], a's child [%s] not found in b", a.Path, a.Children[i].Path))
 	}
 }
 
