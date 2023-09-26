@@ -46,11 +46,14 @@ func (de DirEntry) Link() ipld.Link {
 // node that it cannot fully load. If expectFull is false, it will ignore
 // errors and return nil for any node it cannot load.
 func ToDirEntry(t *testing.T, linkSys linking.LinkSystem, rootCid cid.Cid, expectFull bool) DirEntry {
-	de := toDirEntryRecursive(t, linkSys, rootCid, "", expectFull)
-	return *de
+	return ToDirEntryFrom(t, linkSys, rootCid, "", expectFull)
 }
 
-func toDirEntryRecursive(t *testing.T, linkSys linking.LinkSystem, rootCid cid.Cid, name string, expectFull bool) *DirEntry {
+// ToDirEntryFrom is the same as ToDirEntry but allows specifying a rootPath
+// such that the resulting DirEntry tree will all have that path as a prefix.
+// This is useful when representing a sub-DAG of a larger DAG where you want
+// to make direct comparisons.
+func ToDirEntryFrom(t *testing.T, linkSys linking.LinkSystem, rootCid cid.Cid, rootPath string, expectFull bool) DirEntry {
 	var proto datamodel.NodePrototype = dagpb.Type.PBNode
 	isDagPb := rootCid.Prefix().Codec == cid.DagProtobuf
 	if !isDagPb {
@@ -61,7 +64,7 @@ func toDirEntryRecursive(t *testing.T, linkSys linking.LinkSystem, rootCid cid.C
 		require.NoError(t, err)
 	} else if err != nil {
 		if e, ok := err.(interface{ NotFound() bool }); ok && e.NotFound() {
-			return nil
+			return DirEntry{}
 		}
 		require.NoError(t, err)
 	}
@@ -69,8 +72,8 @@ func toDirEntryRecursive(t *testing.T, linkSys linking.LinkSystem, rootCid cid.C
 	if node.Kind() == ipld.Kind_Bytes { // is a file
 		byts, err := node.AsBytes()
 		require.NoError(t, err)
-		return &DirEntry{
-			Path:    name,
+		return DirEntry{
+			Path:    rootPath,
 			Content: byts,
 			Root:    rootCid,
 		}
@@ -86,8 +89,8 @@ func toDirEntryRecursive(t *testing.T, linkSys linking.LinkSystem, rootCid cid.C
 			require.NoError(t, err)
 			childLink, err := v.AsLink()
 			require.NoError(t, err)
-			child := toDirEntryRecursive(t, linkSys, childLink.(cidlink.Link).Cid, name+"/"+childName, expectFull)
-			children = append(children, *child)
+			child := ToDirEntryFrom(t, linkSys, childLink.(cidlink.Link).Cid, rootPath+"/"+childName, expectFull)
+			children = append(children, child)
 		}
 	} else {
 		// not a dag-pb node, let's pretend it is but using IPLD pathing rules
@@ -97,16 +100,16 @@ func toDirEntryRecursive(t *testing.T, linkSys linking.LinkSystem, rootCid cid.C
 				if err != nil {
 					return err
 				}
-				child := toDirEntryRecursive(t, linkSys, l.(cidlink.Link).Cid, name+"/"+prog.Path.String(), expectFull)
-				children = append(children, *child)
+				child := ToDirEntryFrom(t, linkSys, l.(cidlink.Link).Cid, rootPath+"/"+prog.Path.String(), expectFull)
+				children = append(children, child)
 			}
 			return nil
 		})
 		require.NoError(t, err)
 	}
 
-	return &DirEntry{
-		Path:     name,
+	return DirEntry{
+		Path:     rootPath,
 		Root:     rootCid,
 		Children: children,
 	}
