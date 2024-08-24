@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	ipfsutil "github.com/ipfs/go-ipfs-util"
+	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/ipfs/go-unixfsnode/file"
 	dagpb "github.com/ipld/go-codec-dagpb"
@@ -21,7 +21,7 @@ import (
 
 func TestPartialFileAccess(t *testing.T) {
 	buf := make([]byte, 10*1024*1024)
-	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+	random.NewSeededRand(0xdeadbeef).Read(buf)
 	r := bytes.NewReader(buf)
 
 	ls := cidlink.DefaultLinkSystem()

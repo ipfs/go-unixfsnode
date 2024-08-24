@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
+	chunk "github.com/ipfs/boxo/chunker"
 	"github.com/ipfs/go-cid"
-	chunk "github.com/ipfs/go-ipfs-chunker"
 	"github.com/ipfs/go-unixfsnode/data"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
