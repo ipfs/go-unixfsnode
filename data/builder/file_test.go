@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	ipfsutil "github.com/ipfs/go-ipfs-util"
+	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode/file"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
@@ -24,25 +24,25 @@ var referenceTestCases = []struct {
 }{
 	{
 		size:            1024,
-		bareExpected:    cid.MustParse("bafkreibhn6gptq26tcez7zjklms4242pmhpiuql62ua2wlihyxdxua2nsa"),
-		wrappedExpected: cid.MustParse("bafybeig6rdrdonmqxao32uihcnnbief4qdrjg4aktfo5fmu4cdeqya3glm"),
+		bareExpected:    cid.MustParse("bafkreigwqvgm5f6vgdv7wjkttdhgnkpbazhvuzvrqzaje4scb4moeinjum"),
+		wrappedExpected: cid.MustParse("bafybeib7rloaw4vl56brrnsetobsopu23e5ezoqxq4zorxxtljoeafcpca"),
 	},
 	{
 		size:            10 * 1024,
-		bareExpected:    cid.MustParse("bafkreicesdeiwmnqq6i44so2sebekotb5zz7ymxv7fnbnynzrtftomk5l4"),
-		wrappedExpected: cid.MustParse("bafybeihzqusxng5zb3qjtmkjizvwrv3jer2nafvcwlzhzs2p7sh7mswnsi"),
+		bareExpected:    cid.MustParse("bafkreihaxm6boumj2cwzbs3t3mnktfsgcf25ratcvtcf5kqnsymgk2gxqy"),
+		wrappedExpected: cid.MustParse("bafybeieogamws33kfbtpk5mdhoo2wkxwmd7dwnduyvo7wo65ll75d36xgi"),
 	},
 	{
 		size:            100 * 1024,
-		bareExpected:    cid.MustParse("bafkreie72qttha6godppjndnmbyssddzh2ty2uog7cxwu3d5pzgn7nl72m"),
-		wrappedExpected: cid.MustParse("bafybeidxgheulpeflagdewrjl7oe6loqtpfxncpieu6flje5hqbmgl5q7u"),
+		bareExpected:    cid.MustParse("bafkreia7ockt35s5ki5qzrm37bp57woott6bju6gw64wl7rus7xwjcoemq"),
+		wrappedExpected: cid.MustParse("bafybeicywdnaqrwj3t7xltqgtaoi3ebk6fi2oyam6gsqle3bl4piucpzua"),
 	},
 	{
 		size: 10 * 1024 * 1024,
 		// https://github.com/ipfs/go-unixfs/blob/a7243ebfc36eaa89d79a39d3cef3fa1e60f7e49e/importer/importer_test.go#L49C1-L49C1
 		// QmZN1qquw84zhV4j6vT56tCcmFxaDaySL1ezTXFvMdNmrK, but with --cid-version=1 all the way through the DAG
-		bareExpected:    cid.MustParse("bafybeieyxejezqto5xwcxtvh5tskowwxrn3hmbk3hcgredji3g7abtnfkq"),
-		wrappedExpected: cid.MustParse("bafybeieyal5cus7e4bazoffk5f2ltvlowjyne3z3axupo7lvvyq7dmy37m"),
+		bareExpected:    cid.MustParse("bafybeibxlkafr6oqgflgjcjfbl5db6agozxdknpludvh7ym54oa5qoowbm"),
+		wrappedExpected: cid.MustParse("bafybeigqbp6jog6fvxbpq4opzcgn5rsp7xqrk7xa4zbgnqo6htjmolt3iy"),
 	},
 }
 
@@ -50,7 +50,7 @@ func TestBuildUnixFSFile_Reference(t *testing.T) {
 	for _, tc := range referenceTestCases {
 		t.Run(strconv.Itoa(tc.size), func(t *testing.T) {
 			buf := make([]byte, tc.size)
-			ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+			random.NewSeededRand(0xdeadbeef).Read(buf)
 			r := bytes.NewReader(buf)
 
 			ls := cidlink.DefaultLinkSystem()
@@ -74,7 +74,7 @@ func TestBuildUnixFSFile_Reference(t *testing.T) {
 
 func TestUnixFSFileRoundtrip(t *testing.T) {
 	buf := make([]byte, 10*1024*1024)
-	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+	random.NewSeededRand(0xdeadbeef).Read(buf)
 	r := bytes.NewReader(buf)
 
 	ls := cidlink.DefaultLinkSystem()

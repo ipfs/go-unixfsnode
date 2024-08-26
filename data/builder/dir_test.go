@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	ipfsutil "github.com/ipfs/go-ipfs-util"
+	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
@@ -44,7 +44,7 @@ func TestBuildUnixFSFileWrappedInDirectory_Reference(t *testing.T) {
 	for _, tc := range referenceTestCases {
 		t.Run(strconv.Itoa(tc.size), func(t *testing.T) {
 			buf := make([]byte, tc.size)
-			ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+			random.NewSeededRand(0xdeadbeef).Read(buf)
 			r := bytes.NewReader(buf)
 
 			ls := cidlink.DefaultLinkSystem()

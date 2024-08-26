@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	ipfsutil "github.com/ipfs/go-ipfs-util"
+	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/ipfs/go-unixfsnode/file"
 	dagpb "github.com/ipld/go-codec-dagpb"
@@ -25,7 +25,7 @@ func TestLargeFileReader(t *testing.T) {
 		t.Skip()
 	}
 	buf := make([]byte, 512*1024*1024)
-	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+	random.NewSeededRand(0xdeadbeef).Read(buf)
 	r := bytes.NewReader(buf)
 
 	ls := cidlink.DefaultLinkSystem()
@@ -76,7 +76,7 @@ func TestLargeFileSeeker(t *testing.T) {
 
 	// Make random file with 1024 bytes.
 	buf := make([]byte, 1024)
-	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+	random.NewSeededRand(0xdeadbeef).Read(buf)
 	r := bytes.NewReader(buf)
 
 	// Build UnixFS File chunked in 256 byte parts.
@@ -110,7 +110,7 @@ func TestLargeFileReaderReadsOnlyNecessaryBlocks(t *testing.T) {
 
 	// Make random file with 1024 bytes.
 	buf := make([]byte, 1024)
-	ipfsutil.NewSeededRand(0xdeadbeef).Read(buf)
+	random.NewSeededRand(0xdeadbeef).Read(buf)
 	r := bytes.NewReader(buf)
 
 	// Build UnixFS File chunked in 256 byte parts.
