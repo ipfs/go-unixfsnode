@@ -7,7 +7,8 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"sort"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,13 +74,12 @@ func makeDirWidth(ds format.DAGService, size, width int) ([]string, *legacy.Shar
 }
 
 func assertLinksEqual(linksA []*format.Link, linksB []*format.Link) error {
-
 	if len(linksA) != len(linksB) {
 		return fmt.Errorf("links arrays are different sizes")
 	}
 
-	sort.Stable(dag.LinkSlice(linksA))
-	sort.Stable(dag.LinkSlice(linksB))
+	sortLinks(linksA)
+	sortLinks(linksB)
 	for i, a := range linksA {
 		b := linksB[i]
 		if a.Name != b.Name {
@@ -92,6 +92,12 @@ func assertLinksEqual(linksA []*format.Link, linksB []*format.Link) error {
 	}
 
 	return nil
+}
+
+func sortLinks(links []*format.Link) {
+	slices.SortStableFunc(links, func(a, b *format.Link) int {
+		return strings.Compare(a.Name, b.Name)
+	})
 }
 
 func mockDag() (format.DAGService, *ipld.LinkSystem) {
