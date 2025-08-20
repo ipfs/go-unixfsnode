@@ -1,6 +1,6 @@
 module github.com/ipfs/go-unixfsnode
 
-go 1.23.8
+go 1.24
 
 require (
 	github.com/ipfs/boxo v0.30.0
