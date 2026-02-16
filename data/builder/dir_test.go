@@ -21,7 +21,7 @@ import (
 
 func mkEntries(cnt int, ls *ipld.LinkSystem) ([]dagpb.PBLink, error) {
 	entries := make([]dagpb.PBLink, 0, cnt)
-	for i := 0; i < cnt; i++ {
+	for i := range cnt {
 		r := bytes.NewBufferString(fmt.Sprintf("%d", i))
 		e, err := mkEntry(r, fmt.Sprintf("file %d", i), ls)
 		if err != nil {
@@ -189,7 +189,7 @@ func TestBuildUnixFSRecursiveLargeSharded(t *testing.T) {
 		make([]fentry, 0),
 	}
 
-	for i := 0; i < 1344; i++ {
+	for i := range 1344 {
 		name := fmt.Sprintf("long name to fill out bytes to make the sharded directory test flip over the sharded directory limit because link names are included in the directory entry %d", i)
 		fixture.children = append(fixture.children, fentry{name, name, cid.Undef, nil})
 	}
@@ -220,7 +220,7 @@ func TestBuildUnixFSRecursiveLargeUnsharded(t *testing.T) {
 		make([]fentry, 0),
 	}
 
-	for i := 0; i < 1343; i++ {
+	for i := range 1343 {
 		name := fmt.Sprintf("long name to fill out bytes to make the sharded directory test flip over the sharded directory limit because link names are included in the directory entry %d", i)
 		fixture.children = append(fixture.children, fentry{name, name, cid.Undef, nil})
 	}
