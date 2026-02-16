@@ -171,10 +171,7 @@ func UnixFSDirectory(lsys linking.LinkSystem, targetSize int, opts ...Option) (D
 					if err != nil {
 						return nil, err
 					}
-					size = int(sizeB.Int64())
-					if size > targetSize-curSize {
-						size = targetSize - curSize
-					}
+					size = min(int(sizeB.Int64()), targetSize-curSize)
 				}
 				entry, err := UnixFSFile(lsys, size, opts...)
 				if err != nil {
@@ -299,10 +296,7 @@ func GenerateDirectoryFrom(
 			for size == 0 { // don't make empty files
 				sizeB, err := rand.Int(randReader, big.NewInt(int64(targetFileSize)))
 				require.NoError(t, err)
-				size = int(sizeB.Int64())
-				if size > targetSize-curSize {
-					size = targetSize - curSize
-				}
+				size = min(int(sizeB.Int64()), targetSize-curSize)
 			}
 			entry := GenerateFile(t, linkSys, randReader, size)
 			var name string

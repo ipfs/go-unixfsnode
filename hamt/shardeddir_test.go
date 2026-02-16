@@ -32,7 +32,7 @@ import (
 // in go-ipld-prime
 func shuffle(seed int64, arr []string) {
 	r := rand.New(rand.NewSource(seed))
-	for i := 0; i < len(arr); i++ {
+	for range arr {
 		a := r.Intn(len(arr))
 		b := r.Intn(len(arr))
 		arr[a], arr[b] = arr[b], arr[a]
@@ -52,7 +52,7 @@ func makeDirWidth(ds format.DAGService, size, width int) ([]string, *legacy.Shar
 	}
 
 	var dirs []string
-	for i := 0; i < size; i++ {
+	for i := range size {
 		dirs = append(dirs, fmt.Sprintf("DIRNAME%d", i))
 	}
 
@@ -209,7 +209,7 @@ func TestFindNonExisting(t *testing.T) {
 	require.NoError(t, err)
 	hamtShard, err := hamt.AttemptHAMTShardFromNode(ctx, nd, lsys)
 	require.NoError(t, err)
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		key := fmt.Sprintf("notfound%d", i)
 		_, err := hamtShard.LookupByString(key)
 		require.EqualError(t, err, schema.ErrNoSuchField{Field: ipld.PathSegmentOfString(key)}.Error())
