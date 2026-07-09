@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
@@ -18,6 +18,8 @@ import (
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
+
+var chacha8Seed = [32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))
 
 func mkEntries(cnt int, ls *ipld.LinkSystem) ([]dagpb.PBLink, error) {
 	entries := make([]dagpb.PBLink, 0, cnt)
@@ -41,10 +43,11 @@ func mkEntry(r io.Reader, name string, ls *ipld.LinkSystem) (dagpb.PBLink, error
 }
 
 func TestBuildUnixFSFileWrappedInDirectory_Reference(t *testing.T) {
+	rndSrc := rand.NewChaCha8(chacha8Seed)
 	for _, tc := range referenceTestCases {
 		t.Run(strconv.Itoa(tc.size), func(t *testing.T) {
 			buf := make([]byte, tc.size)
-			random.NewSeededRand(0xdeadbeef).Read(buf)
+			rndSrc.Read(buf)
 			r := bytes.NewReader(buf)
 
 			ls := cidlink.DefaultLinkSystem()

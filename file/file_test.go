@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"testing"
 
-	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode"
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/ipfs/go-unixfsnode/directory"
@@ -18,6 +18,8 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 )
+
+var chacha8Seed = [32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))
 
 func TestRootV0File(t *testing.T) {
 	baseFile := "./fixtures/QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o.car"
@@ -72,7 +74,7 @@ func TestFileSeeker(t *testing.T) {
 
 	// Make random file with 1024 bytes.
 	buf := make([]byte, 1024)
-	random.NewSeededRand(0xdeadbeef).Read(buf)
+	rand.NewChaCha8(chacha8Seed).Read(buf)
 	r := bytes.NewReader(buf)
 
 	// Build UnixFS File as a single chunk
