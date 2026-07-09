@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"strconv"
 	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/ipfs/go-unixfsnode/file"
 	dagpb "github.com/ipld/go-codec-dagpb"
@@ -20,12 +20,14 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 )
 
+var chacha8Seed = [32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))
+
 func TestLargeFileReader(t *testing.T) {
 	if testing.Short() || strconv.IntSize == 32 {
 		t.Skip()
 	}
 	buf := make([]byte, 512*1024*1024)
-	random.NewSeededRand(0xdeadbeef).Read(buf)
+	rand.NewChaCha8(chacha8Seed).Read(buf)
 	r := bytes.NewReader(buf)
 
 	ls := cidlink.DefaultLinkSystem()
@@ -76,7 +78,7 @@ func TestLargeFileSeeker(t *testing.T) {
 
 	// Make random file with 1024 bytes.
 	buf := make([]byte, 1024)
-	random.NewSeededRand(0xdeadbeef).Read(buf)
+	rand.NewChaCha8(chacha8Seed).Read(buf)
 	r := bytes.NewReader(buf)
 
 	// Build UnixFS File chunked in 256 byte parts.
@@ -110,7 +112,7 @@ func TestLargeFileReaderReadsOnlyNecessaryBlocks(t *testing.T) {
 
 	// Make random file with 1024 bytes.
 	buf := make([]byte, 1024)
-	random.NewSeededRand(0xdeadbeef).Read(buf)
+	rand.NewChaCha8(chacha8Seed).Read(buf)
 	r := bytes.NewReader(buf)
 
 	// Build UnixFS File chunked in 256 byte parts.

@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"testing"
 
-	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode"
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/ipfs/go-unixfsnode/directory"
@@ -72,7 +72,7 @@ func TestFileSeeker(t *testing.T) {
 
 	// Make random file with 1024 bytes.
 	buf := make([]byte, 1024)
-	random.NewSeededRand(0xdeadbeef).Read(buf)
+	rand.NewChaCha8(chacha8Seed).Read(buf)
 	r := bytes.NewReader(buf)
 
 	// Build UnixFS File as a single chunk

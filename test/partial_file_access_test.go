@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math/rand/v2"
 	"testing"
 
-	"github.com/ipfs/go-test/random"
 	"github.com/ipfs/go-unixfsnode/data/builder"
 	"github.com/ipfs/go-unixfsnode/file"
 	dagpb "github.com/ipld/go-codec-dagpb"
@@ -21,7 +21,7 @@ import (
 
 func TestPartialFileAccess(t *testing.T) {
 	buf := make([]byte, 10*1024*1024)
-	random.NewSeededRand(0xdeadbeef).Read(buf)
+	rand.NewChaCha8([32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))).Read(buf)
 	r := bytes.NewReader(buf)
 
 	ls := cidlink.DefaultLinkSystem()
