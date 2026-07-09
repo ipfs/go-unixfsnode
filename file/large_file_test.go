@@ -20,8 +20,6 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 )
 
-var chacha8Seed = [32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))
-
 func TestLargeFileReader(t *testing.T) {
 	if testing.Short() || strconv.IntSize == 32 {
 		t.Skip()

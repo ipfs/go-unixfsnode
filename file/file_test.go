@@ -19,6 +19,8 @@ import (
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 )
 
+var chacha8Seed = [32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))
+
 func TestRootV0File(t *testing.T) {
 	baseFile := "./fixtures/QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o.car"
 	root, ls := open(baseFile, t)
