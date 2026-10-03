@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"sync"
@@ -41,7 +42,15 @@ func (s *shardNodeReader) makeReader() (io.Reader, error) {
 	}
 	readers := make([]io.Reader, 0)
 	lnkIter := links.ListIterator()
-	at := int64(0)
+	inline := s.inlineData()
+	at := int64(len(inline))
+	if s.offset < at {
+		r := bytes.NewReader(inline)
+		if _, err := r.Seek(s.offset, io.SeekStart); err != nil {
+			return nil, err
+		}
+		readers = append(readers, r)
+	}
 	for !lnkIter.Done() {
 		lnkIdx, lnk, err := lnkIter.Next()
 		if err != nil {
@@ -85,6 +94,14 @@ func (s *shardNodeReader) makeReader() (io.Reader, error) {
 	}
 	s.len = at
 	return io.MultiReader(readers...), nil
+}
+
+func (s *shardNodeFile) inlineData() []byte {
+	md, err := s.unpack()
+	if err != nil || md == nil || !md.Data.Exists() {
+		return nil
+	}
+	return md.Data.Must().Bytes()
 }
 
 func (s *shardNodeFile) unpack() (data.UnixFSData, error) {
@@ -214,7 +231,7 @@ func (s *shardNodeFile) lengthFromLinks() int64 {
 	if err != nil {
 		return 0
 	}
-	size := int64(0)
+	size := int64(len(s.inlineData()))
 	li := links.ListIterator()
 	for !li.Done() {
 		idx, l, err := li.Next()
